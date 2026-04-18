@@ -328,9 +328,10 @@ export default function ReportPage() {
         )}
 
         <section className="section" style={{ paddingTop: "0" }}>
-          <Link className="card battle-banner reveal" href="/battle" style={{ "--delay": "0.12s" } as CSSProperties}>
+          <Link className="card battle-banner liquid-glass-cta reveal" href="/battle" style={{ "--delay": "0.12s" } as CSSProperties}>
             <p className="battle-banner-text">
-              Think you beat your friends? Find out. ⚔️ Challenge a Friend
+              <span>Think you beat your friends? Find out.</span>
+              <strong>⚔️ Challenge a Friend</strong>
             </p>
           </Link>
         </section>

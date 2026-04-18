@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FormPayload } from "@/lib/types";
 
@@ -29,6 +29,69 @@ const skillOptions = [
   "Figma",
   "Cybersecurity",
 ];
+const branchSkillOptions: Record<string, string[]> = {
+  CS: [
+    "Python",
+    "Java",
+    "C++",
+    "SQL",
+    "React",
+    "Node.js",
+    "Data Analysis",
+    "ML",
+    "AWS",
+    "Docker",
+    "Cybersecurity",
+  ],
+  IT: [
+    "Python",
+    "Java",
+    "C++",
+    "SQL",
+    "React",
+    "Node.js",
+    "Data Analysis",
+    "AWS",
+    "Docker",
+    "Cybersecurity",
+  ],
+  ECE: [
+    "C++",
+    "Python",
+    "Java",
+    "ML",
+    "Data Analysis",
+    "AWS",
+    "Node.js",
+  ],
+  Mechanical: [
+    "CAD",
+    "Python",
+    "C++",
+    "Data Analysis",
+    "Excel",
+  ],
+  Civil: [
+    "CAD",
+    "Excel",
+    "Data Analysis",
+    "Python",
+  ],
+  MBA: [
+    "Excel",
+    "SQL",
+    "Data Analysis",
+    "Figma",
+  ],
+  BBA: [
+    "Excel",
+    "Data Analysis",
+    "Figma",
+    "SQL",
+  ],
+  Other: skillOptions,
+};
+const branchesWithoutProjectTrack = new Set(["Mechanical", "Civil", "MBA", "BBA"]);
 const goalOptions = ["Job", "Startup", "Freelance", "Abroad", "Higher Studies"];
 const cityOptions = [
   "Bangalore",
@@ -89,17 +152,40 @@ export default function IntakeForm() {
     projectProblem: "",
   });
 
-  const stepTitles = useMemo(
-    () => [
-      "Which branch are you in?",
-      "What year and college tier are you in?",
-      "Which skills do you already have?",
-      "What is your goal and city?",
-      "What timeline should we plan for?",
-      "Tell us about your current project track",
-    ],
-    []
+  const isProjectStepEnabled = useMemo(
+    () => !branchesWithoutProjectTrack.has(form.branch),
+    [form.branch]
   );
+
+  const availableSkillOptions = useMemo(
+    () => branchSkillOptions[form.branch] ?? skillOptions,
+    [form.branch]
+  );
+
+  const stepTitles = useMemo(
+    () => {
+      const baseSteps = [
+        "Which branch are you in?",
+        "What year and college tier are you in?",
+        "Which skills do you already have?",
+        "What is your goal and city?",
+        "What timeline should we plan for?",
+      ];
+
+      return isProjectStepEnabled
+        ? [...baseSteps, "Tell us about your current project track"]
+        : baseSteps;
+    },
+    [isProjectStepEnabled]
+  );
+
+  const lastStep = stepTitles.length - 1;
+
+  useEffect(() => {
+    if (!isProjectStepEnabled && step > lastStep) {
+      setStep(lastStep);
+    }
+  }, [isProjectStepEnabled, lastStep, step]);
 
   const getStepMissingFields = (targetStep: number) => {
     const missing: string[] = [];
@@ -132,7 +218,7 @@ export default function IntakeForm() {
       return missing;
     }
 
-    if (targetStep === 5) {
+    if (targetStep === 5 && isProjectStepEnabled) {
       if (!projectsCountSelection) missing.push("Projects Completed");
       if (!form.projectDomain.trim()) missing.push("Project Domain");
       if (form.projectProblem.trim().length < 12) missing.push("Project Problem (min 12 chars)");
@@ -143,7 +229,7 @@ export default function IntakeForm() {
   };
 
   const getAllMissingFields = () => {
-    const byStep = Array.from({ length: 6 }, (_, index) => getStepMissingFields(index));
+    const byStep = Array.from({ length: stepTitles.length }, (_, index) => getStepMissingFields(index));
     return Array.from(new Set(byStep.flat()));
   };
 
@@ -160,7 +246,7 @@ export default function IntakeForm() {
     }
 
     setError("");
-    setStep((prev) => Math.min(prev + 1, 5));
+    setStep((prev) => Math.min(prev + 1, lastStep));
   };
 
   const handleBack = () => {
@@ -220,14 +306,14 @@ export default function IntakeForm() {
   return (
     <div className="card">
       <div className="stepper" aria-hidden="true">
-        {Array.from({ length: 6 }).map((_, index) => (
+        {Array.from({ length: stepTitles.length }).map((_, index) => (
           <div
             key={`step-${index}`}
             className={`step-pill ${index <= step ? "active" : ""}`}
           />
         ))}
       </div>
-      <h2>Step {step + 1} of 6</h2>
+      <h2>Step {step + 1} of {stepTitles.length}</h2>
       <p className="helper">{stepTitles[step]}</p>
 
       {step === 0 && (
@@ -235,7 +321,28 @@ export default function IntakeForm() {
           <select
             className="field"
             value={form.branch}
-            onChange={(event) => setForm((prev) => ({ ...prev, branch: event.target.value }))}
+            onChange={(event) => {
+              const nextBranch = event.target.value;
+              const nextSkills = branchSkillOptions[nextBranch] ?? skillOptions;
+              const shouldHideProjectStep = branchesWithoutProjectTrack.has(nextBranch);
+
+              setForm((prev) => ({
+                ...prev,
+                branch: nextBranch,
+                skills: prev.skills.filter((skill) => nextSkills.includes(skill)),
+                ...(shouldHideProjectStep
+                  ? {
+                      projectsCount: 0,
+                      projectDomain: "",
+                      projectProblem: "",
+                    }
+                  : {}),
+              }));
+
+              if (shouldHideProjectStep) {
+                setProjectsCountSelection("");
+              }
+            }}
           >
             <option value="">Select your branch</option>
             {branchOptions.map((option) => (
@@ -281,7 +388,7 @@ export default function IntakeForm() {
       {step === 2 && (
         <div className="section">
           <div className="tag-row">
-            {skillOptions.map((skill) => (
+            {availableSkillOptions.map((skill) => (
               <button
                 key={skill}
                 type="button"
@@ -292,7 +399,9 @@ export default function IntakeForm() {
               </button>
             ))}
           </div>
-          <p className="helper">Pick at least one. We will adapt the roadmap to your stack.</p>
+          <p className="helper">
+            Pick at least one. Showing skills aligned to {form.branch || "your selected branch"}.
+          </p>
         </div>
       )}
 
@@ -354,7 +463,7 @@ export default function IntakeForm() {
         </div>
       )}
 
-      {step === 5 && (
+      {step === 5 && isProjectStepEnabled && (
         <div className="section">
           <div className="grid-2">
             <select
@@ -416,12 +525,12 @@ export default function IntakeForm() {
             Back
           </button>
         )}
-        {step < 5 && (
+        {step < lastStep && (
           <button className="button primary" type="button" onClick={handleNext}>
             Continue
           </button>
         )}
-        {step === 5 && (
+        {step === lastStep && (
           <button
             className="button primary"
             type="button"

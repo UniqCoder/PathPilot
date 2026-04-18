@@ -199,6 +199,7 @@ p {
 }
 
 .button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -207,7 +208,23 @@ p {
   border-radius: 999px;
   font-weight: 600;
   border: 1px solid transparent;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  overflow: hidden;
+  transform: translateZ(0);
+  transition:
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.24s ease;
+}
+
+.button::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent 28%, rgba(255, 255, 255, 0.48) 52%, transparent 72%);
+  transform: translateX(-125%);
+  transition: transform 0.68s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
 }
 
 .button.primary {
@@ -217,7 +234,11 @@ p {
 }
 
 .button.primary:hover {
-  transform: translateY(-2px);
+  transform: translateY(-2px) scale(1.01);
+}
+
+.button:hover::before {
+  transform: translateX(125%);
 }
 
 .button:disabled {
@@ -307,13 +328,72 @@ p {
 
 .battle-banner {
   display: block;
-  border-color: rgba(233, 69, 96, 0.45);
-  background: linear-gradient(120deg, rgba(233, 69, 96, 0.2), rgba(26, 26, 46, 0.85));
+  border-color: rgba(176, 128, 255, 0.4);
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.02) 64%),
+    linear-gradient(120deg, rgba(44, 18, 86, 0.84), rgba(96, 42, 180, 0.5) 52%, rgba(7, 6, 19, 0.92));
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+
+.liquid-glass-cta {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transform-style: preserve-3d;
+  transition:
+    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.3s ease;
+}
+
+.liquid-glass-cta::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(95deg, transparent 24%, rgba(255, 255, 255, 0.62) 50%, transparent 74%);
+  transform: translateX(-124%);
+  transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.liquid-glass-cta::after {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  border-radius: inherit;
+  background: radial-gradient(circle at 15% 45%, rgba(158, 92, 255, 0.42), transparent 54%);
+  opacity: 0.32;
+  z-index: -1;
+  animation: ctaAura 3.1s ease-in-out infinite;
+}
+
+.liquid-glass-cta:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: rgba(199, 157, 255, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 20px 48px rgba(34, 17, 78, 0.56),
+    0 0 40px rgba(153, 86, 255, 0.36);
+}
+
+.liquid-glass-cta:hover::before {
+  transform: translateX(124%);
 }
 
 .battle-banner-text {
   color: var(--text);
-  font-weight: 600;
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.battle-banner-text strong {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #e8d4ff;
+  text-shadow: 0 0 18px rgba(158, 92, 255, 0.48);
 }
 
 .battle-grid {
@@ -1182,6 +1262,18 @@ p {
   }
 }
 
+@keyframes ctaAura {
+  0%,
+  100% {
+    opacity: 0.24;
+    transform: translateX(-10%) scale(1);
+  }
+  50% {
+    opacity: 0.42;
+    transform: translateX(10%) scale(1.05);
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1255,6 +1347,11 @@ p {
 
   .risk-break-label {
     font-size: 0.9rem;
+  }
+
+  .battle-banner-text {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 

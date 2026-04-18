@@ -97,7 +97,7 @@ export default function Home() {
           </div>
 
           <div className={`${styles.challengeLine} ${styles.reveal}`} style={{ "--delay": "0.25s" } as CSSProperties}>
-            <Link href="/battle">⚔️ Challenge a Friend</Link>
+            <Link className={styles.challengeButton} href="/battle">⚔️ Challenge a Friend</Link>
           </div>
 
           <div className={`${styles.socialProof} ${styles.reveal}`} style={{ "--delay": "0.3s" } as CSSProperties}>
@@ -278,7 +278,7 @@ export default function Home() {
             </div>
           </div>
           <div className={styles.battleCtaRow}>
-            <Link className={styles.primaryButton} href="/battle">
+            <Link className={`${styles.primaryButton} ${styles.challengeButton}`} href="/battle">
               ⚔️ Challenge a Friend
             </Link>
           </div>

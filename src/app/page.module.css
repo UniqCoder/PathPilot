@@ -146,7 +146,7 @@
   padding: 10px 18px;
   color: #f5f5ff;
   border-color: rgba(123, 47, 255, 0.45);
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   font-weight: 500;
   font-size: 0.9rem;
 }
@@ -163,7 +163,7 @@
 .heroTitle {
   margin: 0;
   max-width: 980px;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
   font-weight: 800;
   font-size: clamp(3rem, 7vw, 80px);
   line-height: 1;
@@ -180,7 +180,7 @@
 .heroSubtitle {
   margin: 0;
   max-width: 560px;
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   font-size: 20px;
   font-weight: 300;
   color: rgba(245, 245, 255, 0.4);
@@ -202,7 +202,7 @@
   justify-content: center;
   border-radius: 16px;
   padding: 18px 40px;
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   font-size: 16px;
   font-weight: 500;
   text-decoration: none;
@@ -222,15 +222,82 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
-.challengeLine a {
-  font-family: "Satoshi", "Segoe UI", sans-serif;
-  font-size: 0.95rem;
-  color: #7b2fff;
-  text-underline-offset: 4px;
+.challengeLine {
+  margin-top: 4px;
 }
 
-.challengeLine a:hover {
-  text-decoration: underline;
+.challengeButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.82rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(186, 132, 255, 0.38);
+  color: #f2eaff;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03) 58%),
+    linear-gradient(115deg, rgba(69, 26, 126, 0.66), rgba(123, 47, 255, 0.32));
+  backdrop-filter: blur(26px) saturate(160%);
+  -webkit-backdrop-filter: blur(26px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.14),
+    0 10px 26px rgba(55, 14, 122, 0.34),
+    0 0 30px rgba(162, 92, 255, 0.32);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  overflow: hidden;
+  isolation: isolate;
+  transform-style: preserve-3d;
+  transition:
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 320ms ease;
+}
+
+.challengeButton::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(96deg, transparent 28%, rgba(255, 255, 255, 0.56) 52%, transparent 72%);
+  transform: translateX(-128%);
+  opacity: 0.7;
+  transition: transform 640ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: -1;
+}
+
+.challengeButton::after {
+  content: "";
+  position: absolute;
+  inset: -24% -18%;
+  border-radius: inherit;
+  background: radial-gradient(circle at 20% 40%, rgba(166, 106, 255, 0.44), transparent 52%);
+  opacity: 0.34;
+  z-index: -1;
+  animation: challengeAura 2.8s ease-in-out infinite;
+}
+
+.challengeButton:hover {
+  border-color: rgba(207, 171, 255, 0.72);
+  transform: translateY(-3px) scale(1.012);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.56),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2),
+    0 16px 42px rgba(55, 14, 122, 0.52),
+    0 0 46px rgba(162, 92, 255, 0.38);
+}
+
+.challengeButton:hover::before {
+  transform: translateX(128%);
+}
+
+.challengeButton:active {
+  transform: translateY(-1px) scale(1.004);
 }
 
 .socialProof {
@@ -241,7 +308,7 @@
 
 .socialProof p {
   margin: 0;
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   color: rgba(245, 245, 255, 0.7);
 }
 
@@ -258,7 +325,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   font-size: 0.72rem;
   font-weight: 600;
   margin-left: -10px;
@@ -298,13 +365,13 @@
   margin: 0;
   letter-spacing: 4px;
   color: rgba(245, 245, 255, 0.3);
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   font-size: 0.78rem;
 }
 
 .riskNumber {
   display: inline-block;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(5rem, 13vw, 96px);
   line-height: 1;
@@ -317,7 +384,7 @@
   margin: 10px auto 0;
   color: rgba(245, 245, 255, 0.35);
   max-width: 540px;
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
 }
 
 .riskMiniGrid {
@@ -334,14 +401,14 @@
 
 .miniCard h3 {
   margin: 0;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: 1.1rem;
 }
 
 .miniCard p {
   margin: 8px 0 0;
   color: rgba(245, 245, 255, 0.35);
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
 }
 
 .featuresSection {
@@ -368,7 +435,7 @@
 
 .visualPanel h3 {
   margin: 0;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1.6rem, 3.2vw, 2.2rem);
 }
 
@@ -448,7 +515,7 @@
 
 .signalRail h4 {
   margin: 0;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: 1.35rem;
 }
 
@@ -475,14 +542,14 @@
   text-transform: uppercase;
   color: #7b2fff;
   font-size: 0.78rem;
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   font-weight: 500;
 }
 
 .sectionTitle {
   margin: 0;
   text-align: center;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: clamp(2rem, 5vw, 48px);
 }
@@ -537,14 +604,14 @@
 
 .featureCard h3 {
   margin: 0;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: 1.4rem;
 }
 
 .featureCard p {
   margin: 0;
   color: rgba(245, 245, 255, 0.35);
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
 }
 
 .shadowSection {
@@ -576,14 +643,14 @@
 
 .shadowText h2 {
   margin: 6px 0 8px;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(2rem, 4vw, 42px);
 }
 
 .shadowText p {
   margin: 0;
   color: rgba(245, 245, 255, 0.35);
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
 }
 
 .shadowStats {
@@ -600,14 +667,14 @@
 }
 
 .shadowStats strong {
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: 40px;
   line-height: 1;
   font-weight: 800;
 }
 
 .shadowStats span {
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   color: rgba(245, 245, 255, 0.35);
   font-size: 0.86rem;
 }
@@ -622,7 +689,7 @@
 
 .healthWidget h3 {
   margin: 0;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: 1.35rem;
 }
 
@@ -634,7 +701,7 @@
 .skillBarMeta {
   display: flex;
   justify-content: space-between;
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   font-size: 0.9rem;
   color: rgba(245, 245, 255, 0.6);
 }
@@ -672,7 +739,7 @@
   background: rgba(255, 255, 255, 0.04);
   padding: 12px 14px;
   border-radius: 12px;
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   font-size: 0.85rem;
   color: rgba(245, 245, 255, 0.6);
 }
@@ -686,7 +753,7 @@
   position: absolute;
   inset: 50% auto auto 50%;
   transform: translate(-50%, -55%);
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(100px, 24vw, 200px);
   font-weight: 800;
   color: rgba(255, 255, 255, 0.03);
@@ -712,14 +779,14 @@
 
 .battleCard h3 {
   margin: 0;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: 1.45rem;
 }
 
 .battleCard p {
   margin: 0;
   color: rgba(245, 245, 255, 0.35);
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
 }
 
 .vsDivider {
@@ -729,7 +796,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-weight: 800;
   color: #f5f5ff;
   background: radial-gradient(circle, rgba(123, 47, 255, 0.88), rgba(191, 90, 242, 0.65));
@@ -751,14 +818,14 @@
 
 .obituarySection h3 {
   margin: 0;
-  font-family: "Clash Display", "Segoe UI", sans-serif;
+  font-family: var(--font-display);
   font-size: clamp(1.5rem, 4vw, 2rem);
 }
 
 .blurredText {
   margin: 0;
   color: rgba(245, 245, 255, 0.35);
-  font-family: "Satoshi", "Segoe UI", sans-serif;
+  font-family: var(--font-body);
   filter: blur(4px);
 }
 
@@ -787,6 +854,18 @@
   50% {
     transform: scale(1.25);
     opacity: 1;
+  }
+}
+
+@keyframes challengeAura {
+  0%,
+  100% {
+    opacity: 0.24;
+    transform: translateX(-8%) scale(1);
+  }
+  50% {
+    opacity: 0.42;
+    transform: translateX(9%) scale(1.05);
   }
 }
 
@@ -909,3 +988,4 @@
     transform: none;
   }
 }
+
