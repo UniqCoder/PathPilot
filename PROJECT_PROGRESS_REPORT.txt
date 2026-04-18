@@ -1,0 +1,141 @@
+PathPilot - Current Project Progress Report
+Date: 2026-04-19
+
+1) Project Snapshot
+- Project name: PathPilot
+- Stack: Next.js 16 (App Router), TypeScript, React 19
+- Runtime data storage: Local JSON files in data/
+- Primary objective: AI-guided career risk assessment + 12-week action roadmap for Indian students
+
+2) Website Structure (What the Product Consists Of)
+
+2.1 Frontend Routes
+- / : Landing page
+- /intake : 5-step student intake form
+- /report : Personalized report with risk, pivots, and weekly plans
+- /battle : Create a challenge with a friend
+- /battle/join/[battleId] : Join battle room
+- /battle/results/[battleId] : Battle comparison results and monetization prompts
+
+2.2 API Routes
+- /api/generate-report : Generates the report from profile inputs
+- /api/battle/create : Creates battle room
+- /api/battle/[battleId] : Gets battle room state
+- /api/battle/[battleId]/join : Joins and resolves battle room
+- /api/payments/create-order : Creates Razorpay order (mock mode if keys absent)
+- /api/payments/verify : Verifies payment and creates unlock token
+- /api/payments/status : Validates unlock token and plan
+- /api/payments/webhook : Captures webhook events
+
+2.3 Core Libraries
+- reportEngine.ts : Main report logic, fallback logic, live signal integration, data normalization
+- prompt.ts : LLM prompt construction
+- paymentStore.ts : JSON persistence for payment records and webhooks
+- battleStore.ts : Battle room storage and scoring
+- paymentRules.ts/payments.ts : Unlock and pricing logic
+- types.ts : Shared domain types
+
+3) What Is Implemented and Working (Done)
+
+3.1 Core Reporting
+- Intake to report flow works end-to-end.
+- Risk score and reasoning generation is active.
+- Dead skill and safe skill outputs are generated.
+- Dead skill relevance filter is in place so unrelated skills do not leak in.
+
+3.2 Weekly Planning
+- Weekly report model upgraded from generic single-line actions to detailed structure (title, focus, tasks, deliverable, weekly check, differentiation, resources).
+- Free tier gating for weekly reports is implemented on API side.
+- Weeks 1-2 are visible in free tier; weeks 3-12 are redacted unless unlocked.
+- Frontend renders expanded weekly report details.
+
+3.3 Market Signal Integration
+- Live signal fetch is integrated (currently Stack Overflow + Hacker News data points).
+- Market snapshot is included in generated report payload.
+
+3.4 Payment and Unlock Logic
+- Token-based unlocking is active.
+- Verify and status APIs are implemented.
+- Token expiry logic is implemented by plan.
+- Mock mode exists for no-key local testing.
+
+3.5 Battle Mode
+- Battle room creation/join/result flows are available.
+- Winner logic uses risk score and dead skill counts.
+
+3.6 UX and Export
+- Weekly report JSON download is implemented on report page.
+- Unlock refresh logic updates report after successful payment.
+
+3.7 Build/Runtime Health
+- Latest build succeeds.
+- App runs on localhost and key routes load.
+
+4) Partially Done / Not Done Yet
+
+4.1 Authentication and User Accounts
+- No login/user identity system yet.
+- Reports are session-based (browser storage), not user-account based.
+
+4.2 Persistent Database
+- Data is still file-based JSON, not a production DB.
+- No migration/versioning strategy.
+
+4.3 Testing Coverage
+- No visible automated unit/integration/e2e test suite in project.
+
+4.4 Report Delivery and Artifacts
+- JSON export exists, but robust PDF generation pipeline is not implemented.
+- No email delivery workflow is currently wired end-to-end.
+
+4.5 Observability and Reliability
+- No centralized logging/monitoring/alerting.
+- No request-level telemetry dashboards.
+
+4.6 Security Hardening
+- No explicit rate limiting on report/payment endpoints.
+- No anti-abuse controls for report generation volume.
+
+5) Current Weaknesses
+
+5.1 Product Weaknesses
+- Quality of AI output can vary across calls.
+- Some guidance can still be high-effort for low-motivation users.
+- Weekly tasks are detailed, but personalization depth can still improve further.
+
+5.2 Technical Weaknesses
+- JSON file storage will become fragile under concurrent traffic.
+- Live signal integration depends on external APIs and can be slow/unavailable.
+- No caching layer for market signal fetches.
+
+5.3 Business and UX Weaknesses
+- Monetization flow depends on payment success but lacks richer post-purchase lifecycle messaging.
+- No retention loop (notifications/reminders/check-ins) yet.
+
+6) Improvement Opportunities (High Impact)
+
+6.1 Immediate (1-2 weeks)
+- Add report-generation caching and timeout fallbacks for live market data.
+- Add backend rate limiting and abuse protection on report and payment endpoints.
+- Add lightweight analytics events for funnel tracking (intake completion, unlock conversion, report download).
+
+6.2 Short Term (2-4 weeks)
+- Introduce a real DB (Postgres/Supabase) for users, reports, unlocks, and battle sessions.
+- Add authentication and saved report history.
+- Add true weekly progress tracker (done/not done, streak, completion score).
+
+6.3 Medium Term (1-2 months)
+- Implement deterministic quality checks for generated weekly plans.
+- Add downloadable PDF report generator and optional email delivery.
+- Add role-specific interview prep modules and auto-generated practice sets.
+
+7) Suggested Priority Backlog
+- P0: Database + auth + rate limiting
+- P0: Automated tests for report engine and payment status/verify paths
+- P1: Robust PDF export and report archive per user
+- P1: Better market signal reliability (caching + source expansion)
+- P2: Habit loop features (weekly reminders, progress snapshots, nudges)
+
+8) Overall Status
+- Current phase: Functional MVP+ with paid gating, battle mode, and detailed weekly planning.
+- Readiness level: Good for controlled beta usage, not yet hardened for scale production.
