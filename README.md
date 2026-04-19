@@ -28,6 +28,12 @@ npm install
 cp .env.example .env.local
 ```
 
+Windows PowerShell alternative:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
 3. Run Supabase SQL migration (from `supabase/migrations/001_init.sql`) in your Supabase project.
 
 4. Start development server:
@@ -50,12 +56,16 @@ Critical keys:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `GEMINI_API_KEY`
 - `RAZORPAY_KEY_ID`
 - `RAZORPAY_KEY_SECRET`
 - `NEXT_PUBLIC_RAZORPAY_KEY_ID`
+- `RAZORPAY_WEBHOOK_SECRET`
 - `UPSTASH_REDIS_REST_URL`
 - `UPSTASH_REDIS_REST_TOKEN`
 - `RESEND_API_KEY`
+- `MAIL_FROM`
+- `NEXT_PUBLIC_APP_URL`
 - `NEXT_PUBLIC_POSTHOG_KEY`
 - `NEXT_PUBLIC_POSTHOG_HOST`
 
@@ -97,6 +107,22 @@ npm test
 - `vercel.json` is included for Vercel deployment defaults.
 - Ensure all environment variables are configured in Vercel project settings.
 - Run `npm run build` locally before deploy.
+
+## Deploy Checklist
+
+1. Copy `.env.example` to `.env.local` and fill values:
+  - Supabase URL + keys
+  - Gemini API key
+  - Razorpay keys
+  - Upstash Redis
+2. Run SQL migration in Supabase:
+  - Run `supabase/migrations/001_init.sql` in your Supabase SQL editor
+3. Deploy to Vercel and add all environment variables in the Vercel dashboard.
+4. Test end-to-end flow:
+  - Sign up at `/auth`
+  - Complete intake at `/intake` and verify free report generation
+  - Try payment with Razorpay test mode
+  - Validate battle flow at `/battle`
 
 ## Troubleshooting
 
