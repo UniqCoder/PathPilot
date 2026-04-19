@@ -146,6 +146,7 @@ function AuthPageContent() {
         email: form.email.trim(),
         password: form.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/auth`,
           data: {
             full_name: form.fullName.trim(),
             college: form.college.trim(),

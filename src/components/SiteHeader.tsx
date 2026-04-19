@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+
+const brandText = "PathPilot";
 
 export default function SiteHeader() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -37,8 +40,22 @@ export default function SiteHeader() {
   return (
     <header className="site-header">
       <div className="nav-shell">
-        <Link className="logo-gradient" href="/">
-          PATHPILOT
+        <Link className="logo-gradient" href="/" aria-label="PathPilot home">
+          <span className="brand-liquid-logo" aria-hidden="true">
+            <span className="brand-liquid-core" />
+            <span className="brand-liquid-ring" />
+          </span>
+          <span className="brand-word" aria-hidden="true">
+            {brandText.split("").map((letter, index) => (
+              <span
+                key={`${letter}-${index}`}
+                className="brand-letter"
+                style={{ "--letter-delay": `${index * 24}ms` } as CSSProperties}
+              >
+                {letter}
+              </span>
+            ))}
+          </span>
         </Link>
 
         {email ? (

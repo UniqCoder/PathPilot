@@ -356,6 +356,13 @@ export default function Home() {
             Unlock To Read Full Scenario
           </Link>
         </section>
+
+        <section className={`${styles.glassCard} ${styles.footerContact} ${styles.reveal}`} style={{ "--delay": "0.8s" } as CSSProperties}>
+          <p>
+            <span className={styles.inboxEmoji} aria-hidden="true">📨</span>
+            Contact us at <a href="mailto:zenonx128@gmail.com">zenonx128@gmail.com</a>
+          </p>
+        </section>
       </main>
     </div>
   );
