@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import type { CSSProperties } from "react";
+import toast from "react-hot-toast";
 import AnimatedNumber from "@/components/AnimatedNumber";
+import { trackEvent } from "@/lib/analytics";
 import { startPayment } from "@/lib/payments";
-import type { BattleProfile, BattleRoom, ReportData } from "@/lib/types";
+import type { BattleProfile, BattleRoom } from "@/lib/types";
 
 const riskTone = (score: number) => {
   if (score < 40) return "good";
@@ -132,7 +134,7 @@ export default function BattleResultByIdPage() {
         if (payload.status !== "completed") {
           schedulePoll(4500);
         }
-      } catch (error) {
+      } catch {
         // Keep last known room data to avoid UI flicker on transient network errors.
         schedulePoll(7000);
       }
@@ -169,8 +171,8 @@ export default function BattleResultByIdPage() {
       body: JSON.stringify({ token, plan: "battle-report-49" }),
     })
       .then((response) => response.json())
-      .then((result: { unlocked?: boolean }) => {
-        if (result.unlocked) {
+      .then((result: { success?: boolean; data?: { unlocked?: boolean } }) => {
+        if (result.success && result.data?.unlocked) {
           setIsBattleUnlocked(true);
         } else {
           sessionStorage.removeItem(unlockKey);
@@ -234,16 +236,24 @@ export default function BattleResultByIdPage() {
   const unlockBattleReport = () => {
     if (!viewerData) return;
 
+    trackEvent("payment_started", { plan: "battle-report-49", context: "battle", battleId });
+
     startPayment({
       plan: "battle-report-49",
+      reportId: battleId,
       name: viewerData.me.name,
       email: profileEmail(viewerData.me),
       onSuccess: (result) => {
         sessionStorage.setItem(unlockKey, result.unlockToken);
         setIsBattleUnlocked(true);
         setPaymentMessage("Battle report unlocked. Full breakdown is now visible.");
+        trackEvent("payment_completed", { plan: "battle-report-49", context: "battle" });
+        toast.success("Battle report unlocked.");
       },
-      onError: (message) => setPaymentMessage(message),
+      onError: (message) => {
+        setPaymentMessage(message);
+        toast.error(message);
+      },
     });
   };
 
@@ -254,14 +264,31 @@ export default function BattleResultByIdPage() {
       (viewer === "you" && room.winner === "player_one") ||
       (viewer === "friend" && room.winner === "player_two");
 
+    const linkedReportId = sessionStorage.getItem("pathpilot_report_id");
+    if (!linkedReportId) {
+      const message = "Generate your report first, then complete premium purchase.";
+      setPaymentMessage(message);
+      toast.error(message);
+      return;
+    }
+
+    const selectedPlan = isWinner ? "shadow-you" : "full-roadmap-99";
+    trackEvent("payment_started", { plan: selectedPlan, context: "battle_outcome", battleId });
+
     startPayment({
-      plan: isWinner ? "shadow-you-99-month" : "full-roadmap-99",
+      plan: selectedPlan,
+      reportId: linkedReportId,
       name: viewerData.me.name,
       email: profileEmail(viewerData.me),
       onSuccess: () => {
         setPaymentMessage(isWinner ? "Shadow You activated." : "Roadmap purchase successful.");
+        trackEvent("payment_completed", { plan: selectedPlan, context: "battle_outcome" });
+        toast.success(isWinner ? "Shadow You activated." : "Roadmap purchase successful.");
       },
-      onError: (message) => setPaymentMessage(message),
+      onError: (message) => {
+        setPaymentMessage(message);
+        toast.error(message);
+      },
     });
   };
 

@@ -1,0 +1,17 @@
+"use client";
+
+export default function BattleError({ error, reset }: { error: Error; reset: () => void }) {
+  return (
+    <div className="page">
+      <main className="container">
+        <div className="card">
+          <h1>Battle flow error</h1>
+          <p className="error">{error.message || "Unexpected error occurred."}</p>
+          <button className="button primary" type="button" onClick={reset}>
+            Retry
+          </button>
+        </div>
+      </main>
+    </div>
+  );
+}

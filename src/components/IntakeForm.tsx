@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import { trackEvent } from "@/lib/analytics";
 import type { FormPayload } from "@/lib/types";
 
 const branchOptions = ["CS", "IT", "ECE", "Mechanical", "Civil", "MBA", "BBA", "Other"];
@@ -183,6 +185,7 @@ export default function IntakeForm() {
 
   useEffect(() => {
     if (!isProjectStepEnabled && step > lastStep) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStep(lastStep);
     }
   }, [isProjectStepEnabled, lastStep, step]);
@@ -233,10 +236,6 @@ export default function IntakeForm() {
     return Array.from(new Set(byStep.flat()));
   };
 
-  const isStepValid = () => {
-    return getStepMissingFields(step).length === 0;
-  };
-
   const handleNext = () => {
     const missingFields = getStepMissingFields(step);
 
@@ -275,8 +274,6 @@ export default function IntakeForm() {
     setError("");
 
     try {
-      const unlockToken = sessionStorage.getItem("pathpilot_unlock_report_full") ?? undefined;
-
       const response = await fetch("/api/generate-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -284,20 +281,42 @@ export default function IntakeForm() {
           ...form,
           email: form.email.trim(),
           projectProblem: form.projectProblem.trim(),
-          unlockToken,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to generate report");
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error || "Failed to generate report");
       }
 
-      const report = await response.json();
-      sessionStorage.setItem("pathpilot_report", JSON.stringify(report));
+      const payload = (await response.json()) as {
+        success: boolean;
+        data?: {
+          report: unknown;
+          reportId: string;
+        };
+        error?: string;
+      };
+
+      if (!payload.success || !payload.data) {
+        throw new Error(payload.error || "Failed to generate report");
+      }
+
+      sessionStorage.setItem("pathpilot_report", JSON.stringify(payload.data.report));
+      sessionStorage.setItem("pathpilot_report_id", payload.data.reportId);
       sessionStorage.setItem("pathpilot_profile", JSON.stringify(form));
+      trackEvent("report_generated", {
+        branch: form.branch,
+        goal: form.goal,
+        timeline: form.timeline,
+        reportId: payload.data.reportId,
+      });
+      toast.success("Report generated successfully.");
       router.push("/report");
     } catch (submitError) {
-      setError("Something went wrong. Please try again.");
+      const message = submitError instanceof Error ? submitError.message : "Something went wrong. Please try again.";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
+import { apiError, apiSuccess } from "@/lib/apiResponse";
 import { findPaymentByToken } from "@/lib/paymentStore";
-
-type PaymentPlan = "battle-report-49" | "full-roadmap-99" | "shadow-you-99-month";
+import type { PaymentPlan } from "@/lib/paymentRules";
 
 type StatusRequestBody = {
   token?: string;
@@ -15,28 +14,29 @@ export async function POST(request: Request) {
     const plan = body?.plan;
 
     if (!token || !plan) {
-      return NextResponse.json({ unlocked: false, reason: "Missing token or plan" });
+      return apiError("Missing token or plan", 400);
     }
 
     const record = await findPaymentByToken(token);
     if (!record) {
-      return NextResponse.json({ unlocked: false, reason: "Record not found" });
+      return apiSuccess({ unlocked: false, reason: "Record not found" });
     }
 
-    const now = Date.now();
-    const isExpired = Boolean(record.expiresAt && new Date(record.expiresAt).getTime() < now);
-
+    const isExpired = Boolean(record.expiresAt && new Date(record.expiresAt).getTime() < Date.now());
     const unlocked = record.verified && record.plan === plan && !isExpired;
-    return NextResponse.json({
+
+    return apiSuccess({
       unlocked,
       plan: record.plan,
       verified: record.verified,
       paymentStatus: record.paymentStatus,
       expiresAt: record.expiresAt,
       expired: isExpired,
+      reportId: record.reportId,
       createdAt: record.createdAt,
     });
   } catch (error) {
-    return NextResponse.json({ unlocked: false, reason: "Status check failed" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Status check failed";
+    return apiError(message, 500);
   }
 }

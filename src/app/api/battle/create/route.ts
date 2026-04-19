@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
 import { createBattleRoom } from "@/lib/battleStore";
+import { apiError, apiSuccess } from "@/lib/apiResponse";
+import { createSupabaseRouteHandlerClient } from "@/lib/supabase-server";
+import { checkRateLimit } from "@/lib/ratelimit";
 import type { BattleProfile } from "@/lib/types";
 
 type CreateBattleBody = {
@@ -21,15 +23,29 @@ const isValidProfile = (profile: BattleProfile | undefined) => {
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createSupabaseRouteHandlerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return apiError("Unauthorized", 401);
+    }
+
+    const rateLimit = await checkRateLimit("battle-create", user.id, 5);
+    if (!rateLimit.allowed) {
+      return apiError(rateLimit.message || "Too many requests", 429);
+    }
+
     const body = (await request.json()) as CreateBattleBody;
 
     if (!isValidProfile(body.playerOne)) {
-      return NextResponse.json({ error: "Invalid Player 1 profile" }, { status: 400 });
+      return apiError("Invalid Player 1 profile", 400);
     }
 
     const room = await createBattleRoom(body.playerOne!);
 
-    return NextResponse.json({
+    return apiSuccess({
       battleId: room.id,
       joinLink: `/battle/join/${room.id}`,
       resultLink: `/battle/results/${room.id}?viewer=you`,
@@ -37,6 +53,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create battle";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }

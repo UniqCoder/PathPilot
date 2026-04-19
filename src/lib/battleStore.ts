@@ -1,61 +1,7 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
-import path from "path";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import type { BattleProfile, BattleRoom, BattleWinner, FormPayload, ReportData } from "./types";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const BATTLE_FILE = path.join(DATA_DIR, "battle_rooms.json");
-
-const ensureFile = async () => {
-  await mkdir(DATA_DIR, { recursive: true });
-  try {
-    await readFile(BATTLE_FILE, "utf8");
-  } catch (error) {
-    await writeFile(BATTLE_FILE, "[]", "utf8");
-  }
-};
-
-const readRooms = async () => {
-  await ensureFile();
-  const raw = await readFile(BATTLE_FILE, "utf8");
-  try {
-    return JSON.parse(raw) as BattleRoom[];
-  } catch (error) {
-    return [];
-  }
-};
-
-const writeRooms = async (rooms: BattleRoom[]) => {
-  await ensureFile();
-  await writeFile(BATTLE_FILE, JSON.stringify(rooms, null, 2), "utf8");
-};
-
 const makeId = () => `bt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-
-export const createBattleRoom = async (playerOne: BattleProfile) => {
-  const now = new Date().toISOString();
-  const room: BattleRoom = {
-    id: makeId(),
-    status: "waiting",
-    createdAt: now,
-    updatedAt: now,
-    playerOne,
-    playerTwo: null,
-    playerOneReport: null,
-    playerTwoReport: null,
-    winner: null,
-    winnerStatement: null,
-  };
-
-  const rooms = await readRooms();
-  rooms.push(room);
-  await writeRooms(rooms);
-  return room;
-};
-
-export const getBattleRoom = async (battleId: string) => {
-  const rooms = await readRooms();
-  return rooms.find((room) => room.id === battleId) ?? null;
-};
 
 const buildWinnerStatement = (
   winner: BattleWinner,
@@ -68,7 +14,7 @@ const buildWinnerStatement = (
   if (winner === "player_two") {
     return `${playerTwoName} wins this battle and currently survives the AI era ⚔️`;
   }
-  return `Both fighters are tied right now. The next 90 days decide who survives ⚔️`;
+  return "Both fighters are tied right now. The next 90 days decide who survives ⚔️";
 };
 
 export const evaluateBattleWinner = (
@@ -92,34 +38,118 @@ export const evaluateBattleWinner = (
   return "tie";
 };
 
+type BattleRow = {
+  id: string;
+  battle_id: string;
+  creator_profile: BattleProfile | null;
+  joiner_profile: BattleProfile | null;
+  creator_report: ReportData | null;
+  joiner_report: ReportData | null;
+  winner: BattleWinner | null;
+  status: "waiting" | "completed";
+  created_at: string;
+};
+
+const mapRowToRoom = (row: BattleRow): BattleRoom => {
+  const playerOne = row.creator_profile ?? {
+    name: "Player One",
+    branch: "",
+    year: "",
+    tier: "",
+    skills: [],
+    goal: "",
+    city: "",
+  };
+  const playerTwo = row.joiner_profile;
+
+  return {
+    id: row.battle_id,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.created_at,
+    playerOne,
+    playerTwo,
+    playerOneReport: row.creator_report,
+    playerTwoReport: row.joiner_report,
+    winner: row.winner,
+    winnerStatement:
+      row.winner && playerTwo
+        ? buildWinnerStatement(row.winner, playerOne.name, playerTwo.name)
+        : null,
+  };
+};
+
+export const createBattleRoom = async (playerOne: BattleProfile) => {
+  const battleId = makeId();
+
+  const { data, error } = await supabaseAdmin
+    .from("battles")
+    .insert({
+      battle_id: battleId,
+      creator_profile: playerOne,
+      status: "waiting",
+    })
+    .select(
+      "id,battle_id,creator_profile,joiner_profile,creator_report,joiner_report,winner,status,created_at"
+    )
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message || "Failed to create battle room");
+  }
+
+  return mapRowToRoom(data as BattleRow);
+};
+
+export const getBattleRoom = async (battleId: string) => {
+  const { data, error } = await supabaseAdmin
+    .from("battles")
+    .select(
+      "id,battle_id,creator_profile,joiner_profile,creator_report,joiner_report,winner,status,created_at"
+    )
+    .eq("battle_id", battleId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || "Failed to fetch battle room");
+  }
+
+  return data ? mapRowToRoom(data as BattleRow) : null;
+};
+
 export const completeBattleRoom = async (
   battleId: string,
   playerTwo: BattleProfile,
   playerOneReport: ReportData,
   playerTwoReport: ReportData
 ) => {
-  const rooms = await readRooms();
-  const index = rooms.findIndex((room) => room.id === battleId);
-  if (index === -1) {
+  const existing = await getBattleRoom(battleId);
+  if (!existing) {
     return null;
   }
 
   const winner = evaluateBattleWinner(playerOneReport, playerTwoReport);
-  const room = rooms[index];
-  const updated: BattleRoom = {
-    ...room,
-    status: "completed",
-    updatedAt: new Date().toISOString(),
-    playerTwo,
-    playerOneReport,
-    playerTwoReport,
-    winner,
-    winnerStatement: buildWinnerStatement(winner, room.playerOne.name, playerTwo.name),
-  };
 
-  rooms[index] = updated;
-  await writeRooms(rooms);
-  return updated;
+  const { data, error } = await supabaseAdmin
+    .from("battles")
+    .update({
+      joiner_profile: playerTwo,
+      creator_report: playerOneReport,
+      joiner_report: playerTwoReport,
+      winner,
+      status: "completed",
+    })
+    .eq("battle_id", battleId)
+    .select(
+      "id,battle_id,creator_profile,joiner_profile,creator_report,joiner_report,winner,status,created_at"
+    )
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message || "Failed to complete battle room");
+  }
+
+  return mapRowToRoom(data as BattleRow);
 };
 
 export const battleProfileToFormPayload = (profile: BattleProfile): FormPayload => {

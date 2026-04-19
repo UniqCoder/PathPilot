@@ -1,26 +1,48 @@
-import { createHmac, timingSafeEqual } from "crypto";
-import { NextResponse } from "next/server";
-import { appendPaymentRecord, appendWebhookEvent } from "@/lib/paymentStore";
-import { getExpiryIso } from "@/lib/paymentRules";
+import { createHmac, randomUUID, timingSafeEqual } from "crypto";
+import { apiError, apiSuccess } from "@/lib/apiResponse";
+import { getExpiryIso, type PaymentPlan } from "@/lib/paymentRules";
+import { findPaymentByOrderId, markPaymentCaptured, markPaymentFailed } from "@/lib/paymentStore";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
-type PaymentPlan = "battle-report-49" | "full-roadmap-99" | "shadow-you-99-month";
-
-const planSet = new Set<PaymentPlan>([
+const validPlans = new Set<PaymentPlan>([
   "battle-report-49",
   "full-roadmap-99",
-  "shadow-you-99-month",
+  "shadow-you",
 ]);
 
-const verifySignature = (rawBody: string, signature: string, secret: string) => {
-  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-  const expectedBuffer = Buffer.from(expected, "utf8");
-  const signatureBuffer = Buffer.from(signature, "utf8");
+const secureCompare = (a: string, b: string) => {
+  const aBuffer = Buffer.from(a, "utf8");
+  const bBuffer = Buffer.from(b, "utf8");
 
-  if (expectedBuffer.length !== signatureBuffer.length) {
+  if (aBuffer.length !== bBuffer.length) {
     return false;
   }
 
-  return timingSafeEqual(expectedBuffer, signatureBuffer);
+  return timingSafeEqual(aBuffer, bBuffer);
+};
+
+const reportPlanValue = (plan: PaymentPlan) => {
+  if (plan === "full-roadmap-99") return "full-roadmap-99";
+  if (plan === "shadow-you") return "shadow-you";
+  return "free";
+};
+
+type RazorpayWebhookPayload = {
+  event?: string;
+  payload?: {
+    payment?: {
+      entity?: {
+        id?: string;
+        order_id?: string;
+        status?: string;
+        amount?: number;
+        notes?: {
+          plan?: string;
+          reportId?: string;
+        };
+      };
+    };
+  };
 };
 
 export async function POST(request: Request) {
@@ -29,67 +51,73 @@ export async function POST(request: Request) {
     const signature = request.headers.get("x-razorpay-signature") ?? "";
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-    let signatureVerified = false;
-    if (webhookSecret && signature) {
-      signatureVerified = verifySignature(rawBody, signature, webhookSecret);
-      if (!signatureVerified) {
-        return NextResponse.json({ error: "Invalid webhook signature" }, { status: 400 });
-      }
+    if (!webhookSecret || !signature) {
+      return apiError("Missing webhook signature configuration", 400);
     }
 
-    const payload = JSON.parse(rawBody) as {
-      event?: string;
-      created_at?: number;
-      payload?: {
-        payment?: {
-          entity?: {
-            id?: string;
-            order_id?: string;
-            status?: string;
-            notes?: {
-              plan?: string;
-            };
-          };
-        };
-      };
-    };
-
-    const eventType = payload.event ?? "unknown";
-
-    if (eventType === "payment.captured") {
-      const paymentEntity = payload.payload?.payment?.entity;
-      const planValue = paymentEntity?.notes?.plan;
-
-      if (paymentEntity?.id && paymentEntity.order_id && planValue && planSet.has(planValue as PaymentPlan)) {
-        const plan = planValue as PaymentPlan;
-        await appendPaymentRecord({
-          token: `pp_unlock_wh_${Date.now()}_${paymentEntity.id}`,
-          plan,
-          orderId: paymentEntity.order_id,
-          paymentId: paymentEntity.id,
-          signature,
-          paymentStatus: paymentEntity.status ?? "captured",
-          verified: signatureVerified,
-          source: "webhook",
-          expiresAt: getExpiryIso(plan),
-          createdAt: new Date(
-            (payload.created_at ?? Math.floor(Date.now() / 1000)) * 1000
-          ).toISOString(),
-        });
-      }
+    const expected = createHmac("sha256", webhookSecret).update(rawBody).digest("hex");
+    if (!secureCompare(expected, signature)) {
+      return apiError("Invalid webhook signature", 400);
     }
 
-    await appendWebhookEvent({
-      id: `wh_${Date.now()}`,
-      event: eventType,
-      signatureVerified,
-      createdAt: new Date((payload.created_at ?? Math.floor(Date.now() / 1000)) * 1000).toISOString(),
-      payload: (payload.payload ?? {}) as Record<string, unknown>,
+    const payload = JSON.parse(rawBody) as RazorpayWebhookPayload;
+    const eventType = payload.event ?? "";
+    const entity = payload.payload?.payment?.entity;
+
+    if (!entity?.order_id) {
+      return apiError("Missing order id in webhook payload", 400);
+    }
+
+    if (eventType === "payment.failed") {
+      await markPaymentFailed(entity.order_id, entity.id);
+      return apiSuccess({ received: true, event: eventType });
+    }
+
+    if (eventType !== "payment.captured") {
+      return apiSuccess({ received: true, event: eventType });
+    }
+
+    const pending = await findPaymentByOrderId(entity.order_id);
+    if (!pending) {
+      return apiError("Pending payment record not found", 404);
+    }
+
+    const planFromWebhook = entity.notes?.plan;
+    const plan = validPlans.has(planFromWebhook as PaymentPlan)
+      ? (planFromWebhook as PaymentPlan)
+      : pending.plan;
+
+    const token = randomUUID();
+    const expiresAt = getExpiryIso(plan);
+
+    const captured = await markPaymentCaptured({
+      orderId: entity.order_id,
+      paymentId: entity.id ?? "",
+      signature,
+      plan,
+      token,
+      expiresAt,
+      userId: pending.userId,
+      reportId: pending.reportId,
+      amount: pending.amount || entity.amount || 0,
     });
 
-    return NextResponse.json({ received: true, signatureVerified });
+    if (captured.reportId && captured.plan !== "battle-report-49") {
+      await supabaseAdmin
+        .from("reports")
+        .update({ plan: reportPlanValue(captured.plan) })
+        .eq("id", captured.reportId);
+    }
+
+    return apiSuccess({
+      received: true,
+      event: eventType,
+      paymentId: captured.paymentId,
+      orderId: captured.orderId,
+      reportId: captured.reportId,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Webhook processing failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }

@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server";
+import { apiError, apiSuccess } from "@/lib/apiResponse";
 import { generateReportFromProfile } from "@/lib/reportEngine";
 import { findPaymentByToken } from "@/lib/paymentStore";
+import { createSupabaseRouteHandlerClient } from "@/lib/supabase-server";
+import { checkRateLimit } from "@/lib/ratelimit";
 import type { FormPayload, ReportData } from "@/lib/types";
 
 type GenerateReportRequest = FormPayload & {
@@ -17,10 +19,7 @@ const isRoadmapUnlocked = async (unlockToken?: string) => {
     return false;
   }
 
-  const isExpired = Boolean(
-    record.expiresAt && new Date(record.expiresAt).getTime() < Date.now()
-  );
-
+  const isExpired = Boolean(record.expiresAt && new Date(record.expiresAt).getTime() < Date.now());
   return record.verified && record.plan === "full-roadmap-99" && !isExpired;
 };
 
@@ -48,12 +47,47 @@ export async function POST(request: Request) {
     const payload = (await request.json()) as GenerateReportRequest;
     const { unlockToken, ...profile } = payload;
 
+    const supabase = await createSupabaseRouteHandlerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return apiError("Unauthorized", 401);
+    }
+
+    const rateLimit = await checkRateLimit("generate-report", user.id, 3);
+    if (!rateLimit.allowed) {
+      return apiError(rateLimit.message || "Too many requests", 429);
+    }
+
     const report = await generateReportFromProfile(profile);
     const unlocked = await isRoadmapUnlocked(unlockToken);
+    const finalReport = unlocked ? report : applyFreeTierWeekGating(report);
 
-    return NextResponse.json(unlocked ? report : applyFreeTierWeekGating(report));
+    const { data: savedReport, error: saveError } = await supabase
+      .from("reports")
+      .insert({
+        user_id: user.id,
+        profile,
+        report_data: finalReport,
+        risk_score: finalReport.risk_score,
+        plan: unlocked ? "full-roadmap-99" : "free",
+      })
+      .select("id")
+      .single();
+
+    if (saveError || !savedReport) {
+      return apiError(saveError?.message || "Failed to persist report", 500);
+    }
+
+    return apiSuccess({
+      report: finalReport,
+      reportId: savedReport.id,
+      unlocked,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Report generation failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }

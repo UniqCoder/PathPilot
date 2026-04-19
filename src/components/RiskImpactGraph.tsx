@@ -80,11 +80,15 @@ export default function RiskImpactGraph({ items, riskScore }: RiskImpactGraphPro
   const currentScore = clamp(riskScore, 0, 100);
   const currentBand = getRiskBand(currentScore);
 
-  let running = 50;
-  const values = [50, ...items.map((item) => {
-    running = clamp(running + item.impact, 0, 100);
-    return running;
-  })];
+  const values = items.reduce<number[]>(
+    (acc, item) => {
+      const previous = acc[acc.length - 1] ?? 50;
+      const next = clamp(previous + item.impact, 0, 100);
+      acc.push(next);
+      return acc;
+    },
+    [50]
+  );
 
   const stepX = values.length > 1 ? (chartRight - chartLeft) / (values.length - 1) : 0;
 

@@ -8,6 +8,7 @@ const allowedDevOrigins =
 
 const nextConfig: NextConfig = {
   allowedDevOrigins,
+  serverExternalPackages: ["razorpay"],
 };
 
 export default nextConfig;

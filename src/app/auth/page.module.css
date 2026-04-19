@@ -1,0 +1,143 @@
+.page {
+  min-height: calc(100vh - 88px);
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+
+.shell {
+  width: min(540px, 100%);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.03) 64%),
+    linear-gradient(130deg, rgba(35, 19, 72, 0.9), rgba(8, 10, 24, 0.94));
+  backdrop-filter: blur(26px) saturate(170%);
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  box-shadow: 0 24px 54px rgba(10, 6, 28, 0.55);
+  overflow: hidden;
+}
+
+.head {
+  padding: 24px 24px 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.badge {
+  width: fit-content;
+  border-radius: 999px;
+  border: 1px solid rgba(233, 69, 96, 0.42);
+  color: #ffc1cd;
+  background: rgba(233, 69, 96, 0.14);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.62rem;
+}
+
+.form {
+  padding: 16px 24px 24px;
+  display: grid;
+  gap: 14px;
+}
+
+.configWarn {
+  border: 1px solid rgba(255, 184, 107, 0.58);
+  border-radius: 12px;
+  background: rgba(255, 184, 107, 0.12);
+  color: #ffd8a2;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.84rem;
+}
+
+.configWarn p {
+  margin: 0;
+}
+
+.row {
+  display: grid;
+  gap: 7px;
+}
+
+.label {
+  font-size: 0.9rem;
+  color: rgba(245, 245, 255, 0.9);
+}
+
+.input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(10, 13, 24, 0.84);
+  padding: 0.8rem 0.9rem;
+  color: #f5f5ff;
+}
+
+.input:focus {
+  outline: none;
+  border-color: rgba(191, 90, 242, 0.65);
+  box-shadow: 0 0 0 3px rgba(191, 90, 242, 0.2);
+}
+
+.error {
+  color: #ff9ab0;
+  font-size: 0.8rem;
+}
+
+.helper {
+  color: rgba(245, 245, 255, 0.68);
+  font-size: 0.86rem;
+}
+
+.submit {
+  margin-top: 2px;
+}
+
+.toggle {
+  font-size: 0.9rem;
+  color: rgba(245, 245, 255, 0.8);
+}
+
+.toggle button {
+  margin-left: 6px;
+  background: none;
+  border: none;
+  color: #dcb7ff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.forgot {
+  justify-self: start;
+  background: none;
+  border: none;
+  color: #dcb7ff;
+  font-size: 0.86rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.forgot:disabled,
+.toggle button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.status {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 14px 24px;
+  font-size: 0.9rem;
+  color: rgba(245, 245, 255, 0.86);
+}
+
+.statusError {
+  color: #ff9ab0;
+}
+
+.statusOk {
+  color: #7ee8bd;
+}

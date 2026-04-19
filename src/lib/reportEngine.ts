@@ -1,11 +1,9 @@
-import { readFile } from "fs/promises";
-import path from "path";
 import { buildPrompt } from "./prompt";
+import { marketSignals } from "./marketSignals";
 import { sampleReport } from "./reportDefaults";
 import type { FormPayload, ReportData, RiskBreakdownItem, WeekPlanItem } from "./types";
 
 const GEMINI_MODEL = "gemini-2.0-flash";
-const LOOKBACK_DAYS = 14;
 const COMPANY_LOOKBACK_DAYS = 45;
 const DAY_SECONDS = 24 * 60 * 60;
 
@@ -1158,9 +1156,12 @@ const buildHeuristicReport = (
 };
 
 const readMarketSignals = async (): Promise<MarketSignals> => {
-  const signalsPath = path.join(process.cwd(), "data", "market_signals.json");
-  const raw = await readFile(signalsPath, "utf8");
-  return JSON.parse(raw) as MarketSignals;
+  return {
+    rising_skills: marketSignals.rising_skills,
+    decaying_skills: marketSignals.decaying_skills,
+    city_hiring: marketSignals.city_hiring,
+    automation_risk: marketSignals.automation_risk,
+  };
 };
 
 const callGemini = async (
@@ -1218,7 +1219,7 @@ export const generateReportFromProfile = async (profile: FormPayload) => {
     }
 
     return calibrateReport(geminiReport, profile, marketSignals, liveSnapshot);
-  } catch (error) {
+  } catch {
     return buildHeuristicReport(profile, marketSignals, liveSnapshot);
   }
 };

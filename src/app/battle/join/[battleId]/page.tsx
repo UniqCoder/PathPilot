@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
+import toast from "react-hot-toast";
 import BattleProfileForm, {
   emptyBattleProfile,
   isBattleProfileValid,
 } from "@/components/BattleProfileForm";
+import { trackEvent } from "@/lib/analytics";
 import type { BattleProfile, BattleRoom } from "@/lib/types";
 
 type JoinResponse = {
@@ -35,7 +37,7 @@ export default function BattleJoinPage() {
         }
         const payload = (await response.json()) as BattleRoom;
         setRoom(payload);
-      } catch (loadError) {
+      } catch {
         setError("This battle link is invalid or expired.");
       }
     };
@@ -76,10 +78,13 @@ export default function BattleJoinPage() {
       }
 
       const payload = (await response.json()) as JoinResponse;
+      trackEvent("battle_started", { battleId, role: "player_two" });
+      toast.success("Battle started. Calculating winner...");
       router.push(payload.resultLinkForPlayerTwo);
-    } catch (joinError) {
+    } catch {
       setIsSubmitting(false);
       setError("Could not finish battle generation. Please retry.");
+      toast.error("Could not finish battle generation. Please retry.");
     }
   };
 

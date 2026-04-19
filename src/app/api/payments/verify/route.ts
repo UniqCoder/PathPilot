@@ -1,9 +1,9 @@
-import { createHmac, randomBytes, timingSafeEqual } from "crypto";
-import { NextResponse } from "next/server";
-import { appendPaymentRecord } from "@/lib/paymentStore";
-import { getExpiryIso } from "@/lib/paymentRules";
-
-type PaymentPlan = "battle-report-49" | "full-roadmap-99" | "shadow-you-99-month";
+import { createHmac, randomUUID, timingSafeEqual } from "crypto";
+import { apiError, apiSuccess } from "@/lib/apiResponse";
+import { sendPaymentConfirmationEmail } from "@/lib/email";
+import { getExpiryIso, type PaymentPlan } from "@/lib/paymentRules";
+import { findPaymentByOrderId, markPaymentCaptured } from "@/lib/paymentStore";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 type VerifyRequestBody = {
   plan: PaymentPlan;
@@ -12,134 +12,115 @@ type VerifyRequestBody = {
   signature?: string;
 };
 
-const planSet = new Set<PaymentPlan>([
+const validPlans = new Set<PaymentPlan>([
   "battle-report-49",
   "full-roadmap-99",
-  "shadow-you-99-month",
+  "shadow-you",
 ]);
-
-const buildToken = () => `pp_unlock_${randomBytes(16).toString("hex")}`;
-
-const getRazorpayPayment = async (paymentId: string, keyId: string, keySecret: string) => {
-  const authToken = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
-
-  const response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Basic ${authToken}`,
-    },
-  });
-
-  const payload = await response.json();
-  if (!response.ok) {
-    const description = payload?.error?.description ?? "Unable to fetch payment status";
-    throw new Error(description);
-  }
-
-  return payload as {
-    id: string;
-    order_id: string;
-    status: string;
-  };
-};
 
 const secureCompare = (a: string, b: string) => {
   const aBuffer = Buffer.from(a, "utf8");
   const bBuffer = Buffer.from(b, "utf8");
+
   if (aBuffer.length !== bBuffer.length) {
     return false;
   }
+
   return timingSafeEqual(aBuffer, bBuffer);
+};
+
+const reportPlanValue = (plan: PaymentPlan) => {
+  if (plan === "full-roadmap-99") return "full-roadmap-99";
+  if (plan === "shadow-you") return "shadow-you";
+  return "free";
 };
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as VerifyRequestBody;
-    if (!body?.plan || !planSet.has(body.plan)) {
-      return NextResponse.json({ error: "Invalid plan for verification" }, { status: 400 });
+
+    if (!body?.plan || !validPlans.has(body.plan)) {
+      return apiError("Invalid plan for verification", 400);
     }
 
     const orderId = body.orderId ?? "";
     const paymentId = body.paymentId ?? "";
     const signature = body.signature ?? "";
 
-    if (!orderId || !paymentId) {
-      return NextResponse.json({ error: "Missing order or payment id" }, { status: 400 });
+    if (!orderId || !paymentId || !signature) {
+      return apiError("Missing payment verification fields", 400);
     }
 
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-    const keyId = process.env.RAZORPAY_KEY_ID;
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    if (!secret) {
+      return apiError("Razorpay secret missing", 500);
+    }
+
+    const expectedSignature = createHmac("sha256", secret)
+      .update(`${orderId}|${paymentId}`)
+      .digest("hex");
+
+    if (!secureCompare(expectedSignature, signature)) {
+      return apiError("Payment signature mismatch", 400);
+    }
+
+    const pending = await findPaymentByOrderId(orderId);
+    if (!pending) {
+      return apiError("Pending payment record not found", 404);
+    }
+
+    const token = randomUUID();
     const expiresAt = getExpiryIso(body.plan);
 
-    if (!keySecret) {
-      const token = buildToken();
-      await appendPaymentRecord({
-        token,
-        plan: body.plan,
-        orderId,
-        paymentId,
-        signature,
-        paymentStatus: "captured",
-        verified: true,
-        source: "mock",
-        expiresAt,
-        createdAt: new Date().toISOString(),
-      });
-
-      return NextResponse.json({
-        verified: true,
-        mock: true,
-        plan: body.plan,
-        unlockToken: token,
-      });
-    }
-
-    const payload = `${orderId}|${paymentId}`;
-    const expected = createHmac("sha256", keySecret).update(payload).digest("hex");
-    const verified = secureCompare(expected, signature);
-
-    if (!verified) {
-      return NextResponse.json({ error: "Payment signature mismatch" }, { status: 400 });
-    }
-
-    if (!keyId) {
-      return NextResponse.json({ error: "Razorpay key configuration incomplete" }, { status: 500 });
-    }
-
-    const razorpayPayment = await getRazorpayPayment(paymentId, keyId, keySecret);
-    if (razorpayPayment.order_id !== orderId) {
-      return NextResponse.json({ error: "Order and payment mismatch" }, { status: 400 });
-    }
-
-    if (razorpayPayment.status !== "captured") {
-      return NextResponse.json(
-        { error: `Payment not captured yet (status: ${razorpayPayment.status})` },
-        { status: 409 }
-      );
-    }
-
-    const token = buildToken();
-    await appendPaymentRecord({
-      token,
-      plan: body.plan,
+    const captured = await markPaymentCaptured({
       orderId,
       paymentId,
       signature,
-      paymentStatus: razorpayPayment.status,
-      verified: true,
-      source: "verify",
+      plan: body.plan,
+      token,
       expiresAt,
-      createdAt: new Date().toISOString(),
+      userId: pending.userId,
+      reportId: pending.reportId,
+      amount: pending.amount,
     });
 
-    return NextResponse.json({
+    if (captured.reportId && captured.plan !== "battle-report-49") {
+      const { error: reportError } = await supabaseAdmin
+        .from("reports")
+        .update({ plan: reportPlanValue(captured.plan) })
+        .eq("id", captured.reportId);
+
+      if (reportError) {
+        return apiError(reportError.message || "Failed to update report plan", 500);
+      }
+    }
+
+    try {
+      const recipient = pending.userId
+        ? (await supabaseAdmin.auth.admin.getUserById(pending.userId)).data.user?.email
+        : null;
+
+      if (recipient) {
+        await sendPaymentConfirmationEmail({
+          email: recipient,
+          plan: body.plan,
+          amount: pending.amount,
+          paymentId,
+        });
+      }
+    } catch {
+      // Email is best-effort and should not block verified payments.
+    }
+
+    return apiSuccess({
       verified: true,
-      mock: false,
-      plan: body.plan,
       unlockToken: token,
+      plan: body.plan,
+      reportId: captured.reportId,
+      expiresAt,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Payment verification failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(message, 500);
   }
 }

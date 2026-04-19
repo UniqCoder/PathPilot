@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import SiteHeader from "../components/SiteHeader";
 import PageMotionShell from "../components/PageMotionShell";
+import PosthogProvider from "@/components/analytics/PosthogProvider";
+import ToasterProvider from "@/components/ui/ToasterProvider";
 
 export const metadata: Metadata = {
   title: "PathPilot — AI Career Survival Roadmap",
@@ -24,9 +26,12 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <div className="bg-noise" aria-hidden="true" />
-        <SiteHeader />
-        <PageMotionShell>{children}</PageMotionShell>
+        <PosthogProvider>
+          <div className="bg-noise" aria-hidden="true" />
+          <SiteHeader />
+          <PageMotionShell>{children}</PageMotionShell>
+          <ToasterProvider />
+        </PosthogProvider>
       </body>
     </html>
   );

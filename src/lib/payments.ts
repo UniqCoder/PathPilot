@@ -3,31 +3,44 @@ import type { PaymentPlan } from "./paymentRules";
 export type { PaymentPlan };
 
 type CreateOrderResponse = {
-  mock: boolean;
   keyId: string;
   orderId: string;
   amount: number;
   currency: string;
   plan: PaymentPlan;
+  reportId: string;
 };
 
 type VerifyPaymentResponse = {
   verified: boolean;
-  mock: boolean;
   plan: PaymentPlan;
   unlockToken: string;
+  reportId: string | null;
 };
+
+type ApiSuccess<T> = {
+  success: true;
+  data: T;
+};
+
+type ApiError = {
+  success: false;
+  error: string;
+};
+
+type ApiResponse<T> = ApiSuccess<T> | ApiError;
 
 export type PaymentSuccessResult = {
   paymentId: string;
   unlockToken: string;
   plan: PaymentPlan;
   verified: boolean;
-  mock: boolean;
+  reportId: string | null;
 };
 
 type StartPaymentOptions = {
   plan: PaymentPlan;
+  reportId: string;
   name: string;
   email: string;
   onSuccess: (result: PaymentSuccessResult) => void;
@@ -37,7 +50,7 @@ type StartPaymentOptions = {
 const planLabel: Record<PaymentPlan, string> = {
   "battle-report-49": "Unlock Battle Report",
   "full-roadmap-99": "Unlock Full Roadmap",
-  "shadow-you-99-month": "Shadow You Subscription",
+  "shadow-you": "Shadow You Subscription",
 };
 
 declare global {
@@ -86,20 +99,21 @@ const verifyPayment = async (
   });
 
   if (!verifyResponse.ok) {
-    const errorText = await verifyResponse.text();
-    try {
-      const parsed = JSON.parse(errorText) as { error?: string };
-      throw new Error(parsed.error || "Payment verification failed");
-    } catch {
-      throw new Error(errorText || "Payment verification failed");
-    }
+    const parsed = (await verifyResponse.json()) as ApiError;
+    throw new Error(parsed.error || "Payment verification failed");
   }
 
-  return (await verifyResponse.json()) as VerifyPaymentResponse;
+  const payload = (await verifyResponse.json()) as ApiResponse<VerifyPaymentResponse>;
+  if (!payload.success) {
+    throw new Error(payload.error || "Payment verification failed");
+  }
+
+  return payload.data;
 };
 
 export const startPayment = async ({
   plan,
+  reportId,
   name,
   email,
   onSuccess,
@@ -109,28 +123,20 @@ export const startPayment = async ({
     const response = await fetch("/api/payments/create-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan, name, email }),
+      body: JSON.stringify({ plan, reportId, name, email }),
     });
 
     if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || "Unable to create order");
+      const payload = (await response.json()) as ApiError;
+      throw new Error(payload.error || "Unable to create order");
     }
 
-    const order = (await response.json()) as CreateOrderResponse;
-
-    if (order.mock) {
-      const mockId = `mock_pay_${Date.now()}`;
-      const verified = await verifyPayment(plan, order.orderId, mockId, "mock-signature");
-      onSuccess({
-        paymentId: mockId,
-        unlockToken: verified.unlockToken,
-        plan,
-        verified: verified.verified,
-        mock: true,
-      });
-      return;
+    const payload = (await response.json()) as ApiResponse<CreateOrderResponse>;
+    if (!payload.success) {
+      throw new Error(payload.error || "Unable to create order");
     }
+
+    const order = payload.data;
 
     const scriptLoaded = await loadRazorpayScript();
     if (!scriptLoaded || !window.Razorpay) {
@@ -173,7 +179,7 @@ export const startPayment = async ({
             unlockToken: verified.unlockToken,
             plan,
             verified: verified.verified,
-            mock: false,
+            reportId: verified.reportId,
           });
         } catch (verificationError) {
           const message =

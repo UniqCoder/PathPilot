@@ -6,7 +6,7 @@ describe("paymentExpiryByPlan", () => {
     expect(Object.keys(paymentExpiryByPlan).sort()).toEqual([
       "battle-report-49",
       "full-roadmap-99",
-      "shadow-you-99-month",
+      "shadow-you",
     ]);
   });
 });
@@ -14,18 +14,18 @@ describe("paymentExpiryByPlan", () => {
 describe("getExpiryIso", () => {
   const baseDate = new Date("2026-04-19T00:00:00.000Z");
 
-  it("returns 30-day expiry for battle report", () => {
+  it("returns no expiry for battle report", () => {
     const result = getExpiryIso("battle-report-49", baseDate);
-    expect(result).toBe("2026-05-19T00:00:00.000Z");
+    expect(result).toBeNull();
   });
 
-  it("returns 365-day expiry for full roadmap", () => {
+  it("returns no expiry for full roadmap", () => {
     const result = getExpiryIso("full-roadmap-99", baseDate);
-    expect(result).toBe("2027-04-19T00:00:00.000Z");
+    expect(result).toBeNull();
   });
 
   it("returns monthly expiry for shadow plan", () => {
-    const result = getExpiryIso("shadow-you-99-month", baseDate);
+    const result = getExpiryIso("shadow-you", baseDate);
     expect(result).toBe("2026-05-19T00:00:00.000Z");
   });
 });

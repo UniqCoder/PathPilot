@@ -1,0 +1,37 @@
+export const marketSignals = {
+  last_updated: "2026-04-18",
+  rising_skills: [
+    "AI agents",
+    "Prompt Engineering",
+    "Cloud (AWS/GCP)",
+    "MLOps",
+    "Cybersecurity",
+    "System Design",
+  ],
+  decaying_skills: [
+    "Basic SQL queries",
+    "Manual testing",
+    "Junior Java dev roles",
+    "Data entry",
+    "Basic Excel",
+  ],
+  city_hiring: {
+    Bangalore: "hot",
+    Pune: "moderate",
+    Mumbai: "hot",
+    Hyderabad: "hot",
+    Chennai: "moderate",
+    Tier2: "limited",
+  },
+  recent_layoffs: [
+    "Accenture cut 2000 junior Java roles (March 2026)",
+    "Cognizant froze BPO hiring (Feb 2026)",
+  ],
+  automation_risk: {
+    SQL: 72,
+    "Java basic": 68,
+    "Manual QA": 85,
+    "Python ML": 31,
+    "System Design": 12,
+  },
+};

@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PathPilot Progress Index</title>
+  <style>
+    :root {
+      --bg: #0a0812;
+      --card: rgba(255, 255, 255, 0.05);
+      --border: rgba(255, 255, 255, 0.14);
+      --text: #f6f3ff;
+      --muted: rgba(246, 243, 255, 0.72);
+      --good: #78e3b8;
+      --warn: #ffd089;
+      --bad: #ff9ab0;
+      --accent: #bda1ff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(123, 47, 255, 0.24), transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(0, 190, 255, 0.16), transparent 35%),
+        linear-gradient(140deg, #07050d, #0a0812 60%, #090713);
+      line-height: 1.55;
+      padding: 28px;
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      backdrop-filter: blur(14px);
+    }
+
+    h1, h2, h3 {
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: clamp(1.9rem, 3.5vw, 2.8rem);
+    }
+
+    h2 {
+      font-size: clamp(1.3rem, 2.2vw, 1.7rem);
+    }
+
+    p {
+      color: var(--muted);
+    }
+
+    .kpis {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .kpi {
+      display: grid;
+      gap: 4px;
+    }
+
+    .kpi .v {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .kpi .l {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .matrix {
+      display: grid;
+      gap: 10px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1.2fr auto 2.2fr;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .row .title {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .badge {
+      border-radius: 999px;
+      border: 1px solid transparent;
+      padding: 0.24rem 0.65rem;
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .built {
+      color: #92f2cf;
+      border-color: rgba(120, 227, 184, 0.48);
+      background: rgba(120, 227, 184, 0.14);
+    }
+
+    .partial {
+      color: #ffe1ae;
+      border-color: rgba(255, 208, 137, 0.52);
+      background: rgba(255, 208, 137, 0.14);
+    }
+
+    .not-built {
+      color: #ffc0cf;
+      border-color: rgba(255, 154, 176, 0.5);
+      background: rgba(255, 154, 176, 0.14);
+    }
+
+    .cols {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    ul, ol {
+      padding-left: 1.2rem;
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+    }
+
+    code {
+      color: var(--accent);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92em;
+    }
+
+    .stack-item {
+      border-top: 1px dashed rgba(255, 255, 255, 0.2);
+      padding-top: 10px;
+      margin-top: 10px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .stack-item:first-child {
+      border-top: none;
+      margin-top: 0;
+      padding-top: 0;
+    }
+
+    .layer {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .tools {
+      color: var(--accent);
+      font-size: 0.93rem;
+    }
+
+    .summary {
+      border-left: 2px solid rgba(189, 161, 255, 0.7);
+      background: rgba(123, 47, 255, 0.14);
+    }
+
+    .good { color: var(--good); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+
+    @media (max-width: 980px) {
+      .kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .cols {
+        grid-template-columns: 1fr;
+      }
+      .row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>PathPilot Progress Index (A to Z)</h1>
+      <p>This is a standalone progress file, not part of website routing. Snapshot date: April 19, 2026.</p>
+    </section>
+
+    <section class="kpis">
+      <article class="card kpi">
+        <div class="v">10</div>
+        <div class="l">Tracked Product Areas</div>
+      </article>
+      <article class="card kpi">
+        <div class="v good">6</div>
+        <div class="l">Built</div>
+      </article>
+      <article class="card kpi">
+        <div class="v warn">2</div>
+        <div class="l">Partial</div>
+      </article>
+      <article class="card kpi">
+        <div class="v bad">2</div>
+        <div class="l">Not Built</div>
+      </article>
+    </section>
+
+    <section class="card">
+      <h2>What The Website Has vs Not Yet</h2>
+      <div class="matrix">
+        <div class="row">
+          <div class="title">Landing, Intake, Report Core</div>
+          <span class="badge built">Built</span>
+          <p>Core user flow from landing to personalized report is live and working.</p>
+        </div>
+        <div class="row">
+          <div class="title">12-week Planning + Free/Paid Gating</div>
+          <span class="badge built">Built</span>
+          <p>Weeks 1-2 free, weeks 3-12 locked by token unlock logic.</p>
+        </div>
+        <div class="row">
+          <div class="title">Battle Mode</div>
+          <span class="badge built">Built</span>
+          <p>Create, join, and resolve battle rooms with winner statement logic.</p>
+        </div>
+        <div class="row">
+          <div class="title">Payment APIs + Unlock Tokens</div>
+          <span class="badge partial">Partial</span>
+          <p>Razorpay APIs and mock mode exist; production lifecycle hardening is pending.</p>
+        </div>
+        <div class="row">
+          <div class="title">Automated Testing</div>
+          <span class="badge partial">Partial</span>
+          <p>Vitest unit tests added for payment rules and battle winner logic only.</p>
+        </div>
+        <div class="row">
+          <div class="title">User Accounts + Saved History</div>
+          <span class="badge not-built">Not Built</span>
+          <p>No login/auth and no cross-device persistent user report history yet.</p>
+        </div>
+        <div class="row">
+          <div class="title">Production Data/Observability</div>
+          <span class="badge not-built">Not Built</span>
+          <p>Still JSON-file storage, no centralized telemetry, alerting, or robust scaling posture.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="cols">
+      <article class="card">
+        <h2>Weak Areas Right Now</h2>
+        <ol>
+          <li>AI output consistency can vary run-to-run.</li>
+          <li>JSON file persistence is fragile for concurrent traffic and scale.</li>
+          <li>Live market feed dependencies can fail or slow responses without deeper caching.</li>
+          <li>No user auth/session continuity across devices.</li>
+          <li>Global lint has legacy issues in unrelated files.</li>
+        </ol>
+      </article>
+
+      <article class="card">
+        <h2>Website Surface</h2>
+        <h3>Frontend Routes</h3>
+        <ul>
+          <li><code>/</code></li>
+          <li><code>/intake</code></li>
+          <li><code>/report</code></li>
+          <li><code>/battle</code></li>
+          <li><code>/battle/join/[battleId]</code></li>
+          <li><code>/battle/results/[battleId]</code></li>
+        </ul>
+        <h3 style="margin-top:10px">API Routes</h3>
+        <ul>
+          <li><code>/api/generate-report</code></li>
+          <li><code>/api/battle/create</code></li>
+          <li><code>/api/battle/[battleId]</code></li>
+          <li><code>/api/battle/[battleId]/join</code></li>
+          <li><code>/api/payments/create-order</code></li>
+          <li><code>/api/payments/verify</code></li>
+          <li><code>/api/payments/status</code></li>
+          <li><code>/api/payments/webhook</code></li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="cols">
+      <article class="card">
+        <h2>Tech Stack Used Now</h2>
+        <div class="stack-item">
+          <div class="layer">Frontend</div>
+          <div class="tools">Next.js 16 App Router, React 19, TypeScript</div>
+          <p>Core rendering and routing are app-router based.</p>
+        </div>
+        <div class="stack-item">
+          <div class="layer">Styling/Motion</div>
+          <div class="tools">Global CSS + CSS Modules</div>
+          <p>Custom glassmorphism and animated interactions.</p>
+        </div>
+        <div class="stack-item">
+          <div class="layer">AI Engine</div>
+          <div class="tools">Gemini API</div>
+          <p>Prompt-driven report generation with fallback defaults.</p>
+        </div>
+        <div class="stack-item">
+          <div class="layer">Payments</div>
+          <div class="tools">Razorpay APIs + token unlock model</div>
+          <p>Order create, verify, status, and webhook endpoints are present.</p>
+        </div>
+        <div class="stack-item">
+          <div class="layer">Storage</div>
+          <div class="tools">Local JSON in data/</div>
+          <p>Battle rooms and payment records are currently file-based.</p>
+        </div>
+        <div class="stack-item">
+          <div class="layer">Testing</div>
+          <div class="tools">Vitest (unit)</div>
+          <p>Initial tests exist for payment expiry and battle winner logic.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Tech Stack Planned For Remaining Work</h2>
+        <div class="stack-item">
+          <div class="layer">Database + Auth</div>
+          <div class="tools">Supabase Postgres + Supabase Auth (or NextAuth) + Prisma</div>
+          <p>User identity, report history, unlock records, and safer persistence.</p>
+        </div>
+        <div class="stack-item">
+          <div class="layer">Caching + Rate Limiting</div>
+          <div class="tools">Upstash Redis</div>
+          <p>Protect expensive endpoints and stabilize market-signal fetches.</p>
+        </div>
+        <div class="stack-item">
+          <div class="layer">Monitoring + Error Tracking</div>
+          <div class="tools">Sentry + OpenTelemetry</div>
+          <p>Trace failures and performance bottlenecks at route level.</p>
+        </div>
+        <div class="stack-item">
+          <div class="layer">Analytics</div>
+          <div class="tools">PostHog or GA4</div>
+          <p>Funnel and retention insights for intake, unlock, and usage behavior.</p>
+        </div>
+        <div class="stack-item">
+          <div class="layer">Test Expansion</div>
+          <div class="tools">Playwright + API integration tests</div>
+          <p>End-to-end confidence across intake, report, payment, and battle flows.</p>
+        </div>
+        <div class="stack-item">
+          <div class="layer">Artifact Delivery</div>
+          <div class="tools">PDF generation + email pipeline</div>
+          <p>Exportable reports and lifecycle follow-up delivery.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="card summary">
+      <h2>Readiness Summary</h2>
+      <p>
+        PathPilot is in a functional MVP+ stage: core report generation, monetization gating, and battle mode are operational.
+        It is suitable for controlled beta. For production readiness, priority work remains: auth, real database,
+        rate limiting, observability, and broader automated testing.
+      </p>
+    </section>
+  </main>
+</body>
+</html>

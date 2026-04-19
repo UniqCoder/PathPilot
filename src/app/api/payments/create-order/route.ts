@@ -1,17 +1,19 @@
-import { NextResponse } from "next/server";
-
-type PaymentPlan = "battle-report-49" | "full-roadmap-99" | "shadow-you-99-month";
+import Razorpay from "razorpay";
+import { apiError, apiSuccess } from "@/lib/apiResponse";
+import { createSupabaseRouteHandlerClient } from "@/lib/supabase-server";
+import { createPendingPayment } from "@/lib/paymentStore";
+import type { PaymentPlan } from "@/lib/paymentRules";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 type CreateOrderInput = {
   plan: PaymentPlan;
-  name?: string;
-  email?: string;
+  reportId?: string;
 };
 
 const planConfig: Record<PaymentPlan, { amount: number; label: string }> = {
   "battle-report-49": { amount: 4900, label: "Battle Report Unlock" },
   "full-roadmap-99": { amount: 9900, label: "Full Roadmap Unlock" },
-  "shadow-you-99-month": { amount: 9900, label: "Shadow You Monthly" },
+  "shadow-you": { amount: 29900, label: "Shadow You" },
 };
 
 export async function POST(request: Request) {
@@ -19,63 +21,86 @@ export async function POST(request: Request) {
     const body = (await request.json()) as CreateOrderInput;
 
     if (!body?.plan || !(body.plan in planConfig)) {
-      return NextResponse.json({ error: "Invalid payment plan" }, { status: 400 });
+      return apiError("Invalid payment plan", 400);
     }
 
-    const config = planConfig[body.plan];
-    const currency = "INR";
+    const supabase = await createSupabaseRouteHandlerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return apiError("Unauthorized", 401);
+    }
+
+    const rateLimit = await checkRateLimit("payments-create-order", user.id, 10);
+    if (!rateLimit.allowed) {
+      return apiError(rateLimit.message || "Too many requests", 429);
+    }
+
+    const requiresReport = body.plan !== "battle-report-49";
+    const reportId = body.reportId ?? null;
+
+    if (requiresReport && !reportId) {
+      return apiError("Missing report id", 400);
+    }
+
+    if (requiresReport) {
+      const { data: reportRow, error: reportError } = await supabase
+        .from("reports")
+        .select("id")
+        .eq("id", reportId!)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (reportError || !reportRow) {
+        return apiError("Report not found for this user", 404);
+      }
+    }
+
     const keyId = process.env.RAZORPAY_KEY_ID;
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
     if (!keyId || !keySecret) {
-      return NextResponse.json({
-        mock: true,
-        keyId: "rzp_test_mock",
-        orderId: `mock_order_${Date.now()}`,
-        amount: config.amount,
-        currency,
-        plan: body.plan,
-      });
+      return apiError("Razorpay is not configured", 500);
     }
 
-    const authToken = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
-
-    const razorpayResponse = await fetch("https://api.razorpay.com/v1/orders", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${authToken}`,
-      },
-      body: JSON.stringify({
-        amount: config.amount,
-        currency,
-        receipt: `pathpilot_${body.plan}_${Date.now()}`,
-        notes: {
-          plan: body.plan,
-          label: config.label,
-          name: body.name ?? "PathPilot User",
-          email: body.email ?? "unknown@pathpilot.local",
-        },
-      }),
+    const razorpay = new Razorpay({
+      key_id: keyId,
+      key_secret: keySecret,
     });
 
-    const order = await razorpayResponse.json();
+    const config = planConfig[body.plan];
+    const order = await razorpay.orders.create({
+      amount: config.amount,
+      currency: "INR",
+      receipt: `pathpilot_${body.plan}_${Date.now()}`,
+      notes: {
+        plan: body.plan,
+        reportId: reportId ?? "",
+        label: config.label,
+        userId: user.id,
+      },
+    });
 
-    if (!razorpayResponse.ok) {
-      const description = order?.error?.description ?? "Razorpay order creation failed";
-      return NextResponse.json({ error: description }, { status: 500 });
-    }
+    await createPendingPayment({
+      userId: user.id,
+      reportId,
+      plan: body.plan,
+      amount: config.amount,
+      orderId: order.id,
+    });
 
-    return NextResponse.json({
-      mock: false,
-      keyId,
+    return apiSuccess({
+      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || keyId,
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
       plan: body.plan,
+      reportId,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown payment error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unable to create payment order";
+    return apiError(message, 500);
   }
 }
