@@ -4,6 +4,10 @@ import { createSupabaseRouteHandlerClient } from "@/lib/supabase-server";
 import { createPendingPayment } from "@/lib/paymentStore";
 import type { PaymentPlan } from "@/lib/paymentRules";
 import { checkRateLimit } from "@/lib/ratelimit";
+import {
+  isSupabaseSchemaCacheMissingTableError,
+  supabaseSchemaBootstrapMessage,
+} from "@/lib/supabaseError";
 
 type CreateOrderInput = {
   plan: PaymentPlan;
@@ -45,6 +49,13 @@ export async function POST(request: Request) {
       return apiError("Missing report id", 400);
     }
 
+    if (requiresReport && reportId?.startsWith("local_")) {
+      return apiError(
+        "This report is not saved in your account yet. Generate a fresh report from intake and retry payment.",
+        400
+      );
+    }
+
     if (requiresReport) {
       const { data: reportRow, error: reportError } = await supabase
         .from("reports")
@@ -52,6 +63,10 @@ export async function POST(request: Request) {
         .eq("id", reportId!)
         .eq("user_id", user.id)
         .maybeSingle();
+
+      if (isSupabaseSchemaCacheMissingTableError(reportError, "reports")) {
+        return apiError(supabaseSchemaBootstrapMessage, 503);
+      }
 
       if (reportError || !reportRow) {
         return apiError("Report not found for this user", 404);

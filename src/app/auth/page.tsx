@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient, getMissingSupabaseBrowserEnv } from "@/lib/supabase";
 import styles from "./page.module.css";
@@ -31,8 +31,17 @@ function AuthPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const missingSupabaseEnv = useMemo(() => getMissingSupabaseBrowserEnv(), []);
-  const hasSupabaseConfig = missingSupabaseEnv.length === 0;
+  const [envChecked, setEnvChecked] = useState(false);
+  const [missingSupabaseEnv, setMissingSupabaseEnv] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Run env checks only after mount to avoid server/client hydration drift.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMissingSupabaseEnv(getMissingSupabaseBrowserEnv());
+    setEnvChecked(true);
+  }, []);
+
+  const hasSupabaseConfig = envChecked && missingSupabaseEnv.length === 0;
 
   const [mode, setMode] = useState<AuthMode>("signin");
   const [form, setForm] = useState<FormState>(initialForm);
@@ -70,10 +79,10 @@ function AuthPageContent() {
   };
 
   const handleForgotPassword = async () => {
-    if (!hasSupabaseConfig) {
+    if (!envChecked || !hasSupabaseConfig) {
       setStatusIsError(true);
       setStatus(
-        `Missing Supabase configuration: ${missingSupabaseEnv.join(", ")}. Add values in .env.local and restart the dev server.`
+        `Missing Supabase configuration: ${(missingSupabaseEnv.length > 0 ? missingSupabaseEnv : ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"]).join(", ")}. Add values in .env.local and restart the dev server.`
       );
       return;
     }
@@ -101,10 +110,10 @@ function AuthPageContent() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!hasSupabaseConfig) {
+    if (!envChecked || !hasSupabaseConfig) {
       setStatusIsError(true);
       setStatus(
-        `Missing Supabase configuration: ${missingSupabaseEnv.join(", ")}. Add values in .env.local and restart the dev server.`
+        `Missing Supabase configuration: ${(missingSupabaseEnv.length > 0 ? missingSupabaseEnv : ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"]).join(", ")}. Add values in .env.local and restart the dev server.`
       );
       return;
     }
@@ -190,7 +199,7 @@ function AuthPageContent() {
         </div>
 
         <form className={styles.form} onSubmit={handleSubmit} noValidate>
-          {!hasSupabaseConfig && (
+          {envChecked && !hasSupabaseConfig && (
             <div className={styles.configWarn} role="alert">
               <p>Supabase is not configured for browser auth.</p>
               <p>
@@ -265,7 +274,7 @@ function AuthPageContent() {
             {errors.password && <p className={styles.error}>{errors.password}</p>}
           </div>
 
-          <button className={`button primary ${styles.submit}`} type="submit" disabled={!hasSupabaseConfig || isSubmitting}>
+          <button className={`button primary ${styles.submit}`} type="submit" disabled={!envChecked || !hasSupabaseConfig || isSubmitting}>
             {isSubmitting ? "Please wait..." : mode === "signin" ? "Sign In" : "Create Account"}
           </button>
 
@@ -273,7 +282,7 @@ function AuthPageContent() {
             type="button"
             className={styles.forgot}
             onClick={handleForgotPassword}
-            disabled={!hasSupabaseConfig || isSubmitting}
+            disabled={!envChecked || !hasSupabaseConfig || isSubmitting}
           >
             Forgot password?
           </button>

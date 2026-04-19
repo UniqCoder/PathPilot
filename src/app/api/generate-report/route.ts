@@ -3,6 +3,10 @@ import { generateReportFromProfile } from "@/lib/reportEngine";
 import { findPaymentByToken } from "@/lib/paymentStore";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase-server";
 import { checkRateLimit } from "@/lib/ratelimit";
+import {
+  isSupabaseSchemaCacheMissingTableError,
+  supabaseSchemaBootstrapMessage,
+} from "@/lib/supabaseError";
 import type { FormPayload, ReportData } from "@/lib/types";
 
 type GenerateReportRequest = FormPayload & {
@@ -78,6 +82,16 @@ export async function POST(request: Request) {
       .single();
 
     if (saveError || !savedReport) {
+      if (isSupabaseSchemaCacheMissingTableError(saveError, "reports")) {
+        return apiSuccess({
+          report: finalReport,
+          reportId: `local_${Date.now()}`,
+          unlocked,
+          persisted: false,
+          warning: supabaseSchemaBootstrapMessage,
+        });
+      }
+
       return apiError(saveError?.message || "Failed to persist report", 500);
     }
 
@@ -85,6 +99,7 @@ export async function POST(request: Request) {
       report: finalReport,
       reportId: savedReport.id,
       unlocked,
+      persisted: true,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Report generation failed";

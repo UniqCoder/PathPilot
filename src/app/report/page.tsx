@@ -230,22 +230,82 @@ export default function ReportPage() {
   const freeWeeks = data.week_plan.slice(0, 2);
   const lockedWeeks = data.week_plan.slice(2);
 
-  const openRoadmapPayment = () => {
+  const ensurePersistedReportForPayment = async () => {
     if (!reportId) {
-      setPaymentMessage("Generate or load a report first before payment.");
+      throw new Error("Generate or load a report first before payment.");
+    }
+
+    if (!reportId.startsWith("local_")) {
+      return reportId;
+    }
+
+    if (!profile) {
+      throw new Error(
+        "This preview report is not yet saved to your account. Generate a fresh report from intake, then retry payment."
+      );
+    }
+
+    setPaymentMessage("Syncing your report to your account before checkout...");
+
+    const response = await fetch("/api/generate-report", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(profile),
+    });
+
+    const payload = (await response.json()) as {
+      success: boolean;
+      data?: {
+        report: ReportData;
+        reportId: string;
+        persisted?: boolean;
+        warning?: string;
+      };
+      error?: string;
+    };
+
+    if (!response.ok || !payload.success || !payload.data) {
+      throw new Error(payload.error || "Failed to sync report before payment");
+    }
+
+    if (payload.data.persisted === false || payload.data.reportId.startsWith("local_")) {
+      throw new Error(
+        payload.data.warning || "Supabase schema is not initialized for saved reports yet."
+      );
+    }
+
+    setReport(payload.data.report);
+    setReportId(payload.data.reportId);
+    setHasLiveReport(true);
+    sessionStorage.setItem("pathpilot_report", JSON.stringify(payload.data.report));
+    sessionStorage.setItem("pathpilot_report_id", payload.data.reportId);
+    setPaymentMessage("Report synced. Opening payment...");
+
+    return payload.data.reportId;
+  };
+
+  const openRoadmapPayment = async () => {
+    let effectiveReportId: string;
+
+    try {
+      effectiveReportId = await ensurePersistedReportForPayment();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to start payment";
+      setPaymentMessage(message);
+      toast.error(message);
       return;
     }
 
     startPayment({
       plan: "full-roadmap-99",
-      reportId,
+      reportId: effectiveReportId,
       name: "PathPilot User",
       email: profile?.email ?? "student@pathpilot.local",
       onSuccess: (result) => {
-        localStorage.setItem(reportUnlockKeyFor(reportId), result.unlockToken);
+        localStorage.setItem(reportUnlockKeyFor(effectiveReportId), result.unlockToken);
         setIsRoadmapUnlocked(true);
         setPaymentMessage("Payment successful. Full roadmap unlocked.");
-        trackEvent("payment_completed", { plan: "full-roadmap-99", reportId });
+        trackEvent("payment_completed", { plan: "full-roadmap-99", reportId: effectiveReportId });
         toast.success("Full roadmap unlocked.");
 
         if (profile) {
@@ -258,23 +318,29 @@ export default function ReportPage() {
       },
     });
 
-    trackEvent("payment_started", { plan: "full-roadmap-99", reportId });
+    trackEvent("payment_started", { plan: "full-roadmap-99", reportId: effectiveReportId });
   };
 
-  const openShadowYouPayment = () => {
-    if (!reportId) {
-      setPaymentMessage("Generate or load a report first before payment.");
+  const openShadowYouPayment = async () => {
+    let effectiveReportId: string;
+
+    try {
+      effectiveReportId = await ensurePersistedReportForPayment();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to start payment";
+      setPaymentMessage(message);
+      toast.error(message);
       return;
     }
 
     startPayment({
       plan: "shadow-you",
-      reportId,
+      reportId: effectiveReportId,
       name: "PathPilot User",
       email: profile?.email ?? "student@pathpilot.local",
       onSuccess: () => {
         setPaymentMessage("Shadow You payment successful.");
-        trackEvent("payment_completed", { plan: "shadow-you", reportId });
+        trackEvent("payment_completed", { plan: "shadow-you", reportId: effectiveReportId });
         toast.success("Shadow You unlocked.");
       },
       onError: (message) => {
@@ -283,7 +349,7 @@ export default function ReportPage() {
       },
     });
 
-    trackEvent("payment_started", { plan: "shadow-you", reportId });
+    trackEvent("payment_started", { plan: "shadow-you", reportId: effectiveReportId });
   };
 
   const downloadWeeklyReportsJson = () => {

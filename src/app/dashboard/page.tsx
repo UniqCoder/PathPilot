@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerComponentClient } from "@/lib/supabase-server";
+import {
+  isSupabaseSchemaCacheMissingTableError,
+  supabaseSchemaBootstrapMessage,
+} from "@/lib/supabaseError";
 
 type ReportRow = {
   id: string;
@@ -35,12 +39,23 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false });
 
   if (error) {
+    const isMissingReportsTable = isSupabaseSchemaCacheMissingTableError(error, "reports");
+
     return (
       <div className="page">
         <main className="container">
           <div className="card">
             <h1>Dashboard unavailable</h1>
-            <p className="error">{error.message}</p>
+            {isMissingReportsTable ? (
+              <>
+                <p className="error">{supabaseSchemaBootstrapMessage}</p>
+                <p className="helper">
+                  After applying the migration, refresh this page and your saved reports will load.
+                </p>
+              </>
+            ) : (
+              <p className="error">{error.message}</p>
+            )}
           </div>
         </main>
       </div>

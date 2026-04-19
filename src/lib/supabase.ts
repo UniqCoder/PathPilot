@@ -2,15 +2,14 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase-types";
 
-const requiredBrowserEnv = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"] as const;
-
-const readEnvValue = (key: (typeof requiredBrowserEnv)[number]) => {
-  const value = process.env[key];
-  return typeof value === "string" ? value.trim() : "";
-};
+const browserSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+const browserSupabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";
 
 export const getMissingSupabaseBrowserEnv = () =>
-  requiredBrowserEnv.filter((key) => !readEnvValue(key));
+  [
+    ...(browserSupabaseUrl ? [] : ["NEXT_PUBLIC_SUPABASE_URL"]),
+    ...(browserSupabaseAnonKey ? [] : ["NEXT_PUBLIC_SUPABASE_ANON_KEY"]),
+  ];
 
 export const isSupabaseBrowserConfigured = () =>
   getMissingSupabaseBrowserEnv().length === 0;
@@ -42,8 +41,8 @@ const createMissingBrowserClient = (missingKeys: string[]) => {
 };
 
 export const createSupabaseBrowserClient = () => {
-  const url = readEnvValue("NEXT_PUBLIC_SUPABASE_URL");
-  const anonKey = readEnvValue("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const url = browserSupabaseUrl;
+  const anonKey = browserSupabaseAnonKey;
 
   if (!url || !anonKey) {
     return createMissingBrowserClient(getMissingSupabaseBrowserEnv());
