@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { MouseEvent } from "react";
 import AnimatedNumber from "@/components/AnimatedNumber";
@@ -29,21 +29,51 @@ const featureCards = [
 
 export default function Home() {
   const [risk, setRisk] = useState(70);
+  const reducedMotion = useRef(false);
+  const parallaxFrame = useRef<number | null>(null);
+  const parallaxQueue = useRef(new Map<HTMLElement, { x: number; y: number }>());
+
+  const flushParallax = () => {
+    parallaxQueue.current.forEach((offset, node) => {
+      node.style.setProperty("--px", `${offset.x}px`);
+      node.style.setProperty("--py", `${offset.y}px`);
+      node.style.setProperty("--ry", `${offset.x / 2}deg`);
+      node.style.setProperty("--rx", `${offset.y / -2}deg`);
+    });
+
+    parallaxQueue.current.clear();
+    parallaxFrame.current = null;
+  };
+
+  const queueParallax = (node: HTMLElement, relativeX: number, relativeY: number) => {
+    parallaxQueue.current.set(node, {
+      x: relativeX * 10,
+      y: relativeY * 10,
+    });
+
+    if (parallaxFrame.current !== null) {
+      return;
+    }
+
+    parallaxFrame.current = window.requestAnimationFrame(flushParallax);
+  };
 
   const handleParallaxMove = (event: MouseEvent<HTMLElement>) => {
+    if (reducedMotion.current) {
+      return;
+    }
+
     const node = event.currentTarget;
     const rect = node.getBoundingClientRect();
     const relativeX = (event.clientX - rect.left) / rect.width - 0.5;
     const relativeY = (event.clientY - rect.top) / rect.height - 0.5;
 
-    node.style.setProperty("--px", `${relativeX * 10}px`);
-    node.style.setProperty("--py", `${relativeY * 10}px`);
-    node.style.setProperty("--ry", `${relativeX * 5}deg`);
-    node.style.setProperty("--rx", `${relativeY * -5}deg`);
+    queueParallax(node, relativeX, relativeY);
   };
 
   const handleParallaxLeave = (event: MouseEvent<HTMLElement>) => {
     const node = event.currentTarget;
+    parallaxQueue.current.delete(node);
     node.style.setProperty("--px", "0px");
     node.style.setProperty("--py", "0px");
     node.style.setProperty("--ry", "0deg");
@@ -51,13 +81,41 @@ export default function Home() {
   };
 
   useEffect(() => {
+    const queueRef = parallaxQueue.current;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncReducedMotion = () => {
+      reducedMotion.current = motion.matches;
+    };
+
+    syncReducedMotion();
+
+    if (typeof motion.addEventListener === "function") {
+      motion.addEventListener("change", syncReducedMotion);
+    } else {
+      motion.addListener(syncReducedMotion);
+    }
+
     const interval = setInterval(() => {
       if (!document.hidden) {
         setRisk(randomRisk());
       }
-    }, 1500);
+    }, 1800);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+
+      if (typeof motion.removeEventListener === "function") {
+        motion.removeEventListener("change", syncReducedMotion);
+      } else {
+        motion.removeListener(syncReducedMotion);
+      }
+
+      if (parallaxFrame.current !== null) {
+        window.cancelAnimationFrame(parallaxFrame.current);
+      }
+
+      queueRef.clear();
+    };
   }, []);
 
   return (

@@ -342,6 +342,16 @@
   justify-content: center;
 }
 
+.riskWrap,
+.featuresSection,
+.premiumVisualSection,
+.shadowSection,
+.battleSection,
+.obituarySection {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 720px;
+}
+
 .glassCard {
   border-radius: 24px;
 }
@@ -975,6 +985,23 @@
   }
 }
 
+@media (hover: none), (pointer: coarse) {
+  .parallax {
+    transform: none;
+  }
+
+  .featureCard:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .signalRail li:hover,
+  .challengeButton:hover,
+  .challengeButton:active {
+    transform: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .page *,
   .page *::before,
@@ -985,6 +1012,10 @@
 
   .reveal {
     opacity: 1;
+    transform: none;
+  }
+
+  .parallax {
     transform: none;
   }
 }

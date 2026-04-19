@@ -71,7 +71,10 @@ const buildWinnerStatement = (
   return `Both fighters are tied right now. The next 90 days decide who survives ⚔️`;
 };
 
-const evaluateWinner = (playerOneReport: ReportData, playerTwoReport: ReportData): BattleWinner => {
+export const evaluateBattleWinner = (
+  playerOneReport: ReportData,
+  playerTwoReport: ReportData
+): BattleWinner => {
   if (playerOneReport.risk_score < playerTwoReport.risk_score) {
     return "player_one";
   }
@@ -101,7 +104,7 @@ export const completeBattleRoom = async (
     return null;
   }
 
-  const winner = evaluateWinner(playerOneReport, playerTwoReport);
+  const winner = evaluateBattleWinner(playerOneReport, playerTwoReport);
   const room = rooms[index];
   const updated: BattleRoom = {
     ...room,
